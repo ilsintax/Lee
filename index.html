@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>개인화 사이트 메인</title>
+  <title>&#44060;&#51064;&#54868; &#49324;&#51060;&#53944; &#47700;&#51064;</title>
   <style>
     :root {
-      --bg-start: #f4f7fb;
-      --bg-end: #e7eef8;
-      --panel: rgba(255, 255, 255, 0.92);
+      --bg-start: #f3f6fb;
+      --bg-end: #e6edf7;
+      --panel: rgba(255, 255, 255, 0.94);
       --panel-border: rgba(24, 61, 104, 0.12);
       --text-main: #183d68;
       --text-sub: #5d6f85;
       --accent: #2f7cf6;
       --accent-strong: #165ed1;
+      --accent-soft: rgba(47, 124, 246, 0.10);
       --shadow: 0 18px 40px rgba(27, 57, 96, 0.12);
     }
 
@@ -26,19 +27,19 @@
       min-height: 100vh;
       font-family: "Segoe UI", "Malgun Gothic", sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(47, 124, 246, 0.12), transparent 28%),
+        radial-gradient(circle at top left, rgba(47, 124, 246, 0.14), transparent 28%),
         linear-gradient(180deg, var(--bg-start), var(--bg-end));
       color: var(--text-main);
     }
 
     .page {
-      width: min(1080px, calc(100% - 32px));
+      width: min(1280px, calc(100% - 32px));
       margin: 0 auto;
       padding: 56px 0 72px;
     }
 
     .hero {
-      margin-bottom: 32px;
+      margin-bottom: 36px;
     }
 
     .hero h1 {
@@ -50,7 +51,7 @@
 
     .hero p {
       margin: 0;
-      max-width: 680px;
+      max-width: 760px;
       color: var(--text-sub);
       font-size: 17px;
       line-height: 1.7;
@@ -58,8 +59,9 @@
 
     .company-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 24px;
+      align-items: start;
     }
 
     .company-card {
@@ -91,7 +93,7 @@
       gap: 12px;
       padding: 16px 18px;
       border-radius: 16px;
-      background: linear-gradient(135deg, rgba(47, 124, 246, 0.10), rgba(47, 124, 246, 0.02));
+      background: linear-gradient(135deg, var(--accent-soft), rgba(47, 124, 246, 0.02));
       border: 1px solid rgba(47, 124, 246, 0.18);
       color: var(--accent-strong);
       text-decoration: none;
@@ -108,7 +110,7 @@
       outline: none;
     }
 
-    .task-link span:last-child {
+    .task-arrow {
       font-size: 20px;
       line-height: 1;
     }
@@ -117,11 +119,12 @@
       margin-top: 28px;
       color: var(--text-sub);
       font-size: 14px;
+      line-height: 1.7;
     }
 
     @media (max-width: 640px) {
       .page {
-        width: min(100% - 20px, 1080px);
+        width: min(100% - 20px, 1280px);
         padding-top: 40px;
         padding-bottom: 48px;
       }
@@ -140,23 +143,33 @@
 <body>
   <main class="page">
     <section class="hero">
-      <h1>개인화 사이트 메인</h1>
-      <p>업체별 작업을 한눈에 보고 바로 이동할 수 있도록 정리한 메인 화면입니다. 추후 업체나 하부 작업이 늘어나면 아래 카드와 링크만 같은 형식으로 추가하면 됩니다.</p>
+      <h1>&#44060;&#51064;&#54868; &#49324;&#51060;&#53944; &#47700;&#51064;</h1>
+      <p>&#50629;&#52404;&#48324; &#51089;&#50629;&#51012; &#54620;&#45576;&#50640; &#48372;&#44256; &#48148;&#47196; &#51060;&#46041;&#54624; &#49688; &#51080;&#46020;&#47197; &#51221;&#47532;&#54620; &#47700;&#51064; &#54868;&#47732;&#51077;&#45768;&#45796;. &#50629;&#52404;&#44032; &#45908; &#45720;&#50612;&#45208;&#45908;&#46972;&#46020; &#44057;&#51008; &#52852;&#46300; &#54805;&#49885;&#51004;&#47196; &#51088;&#50672;&#49828;&#47101;&#44172; &#54869;&#51109;&#46104;&#46020;&#47197; &#48176;&#52824;&#54664;&#49845;&#45768;&#45796;.</p>
     </section>
 
-    <section class="company-grid" aria-label="업체별 바로가기 목록">
+    <section class="company-grid" aria-label="&#50629;&#52404;&#48324; &#48148;&#47196;&#44032;&#44592; &#47785;&#47197;">
       <article class="company-card">
         <h2 class="company-name">GLP</h2>
         <div class="task-list">
           <a class="task-link" href="https://ilsintax.github.io/Lee/GLP/payroll" target="_blank" rel="noopener noreferrer">
             <span>Payroll</span>
-            <span aria-hidden="true">&rsaquo;</span>
+            <span class="task-arrow" aria-hidden="true">&gt;</span>
+          </a>
+        </div>
+      </article>
+
+      <article class="company-card">
+        <h2 class="company-name">The Moon</h2>
+        <div class="task-list">
+          <a class="task-link" href="https://ilsintax.github.io/Lee/The%20moon/payroll" target="_blank" rel="noopener noreferrer">
+            <span>Payroll</span>
+            <span class="task-arrow" aria-hidden="true">&gt;</span>
           </a>
         </div>
       </article>
     </section>
 
-    <p class="helper-text">관리 팁: 업체 추가 시에는 카드 단위로, 하부 작업 추가 시에는 같은 카드 안에 링크를 한 줄씩 더 넣으면 됩니다.</p>
+    <p class="helper-text">&#44288;&#47532; &#54081;: &#50629;&#52404;&#44032; &#45720;&#50612;&#45208;&#47732; `company-card` &#48660;&#47197;&#51012; &#48373;&#49324;&#54644;&#49436; &#52628;&#44032;&#54616;&#44256;, &#44033; &#50629;&#52404; &#50504;&#50640;&#49436; &#51089;&#50629;&#51060; &#45720;&#50612;&#45208;&#47732; `task-link` &#54620; &#51460;&#50473; &#45908; &#45347;&#51004;&#47732; &#46121;&#45768;&#45796;.</p>
   </main>
 </body>
 </html>

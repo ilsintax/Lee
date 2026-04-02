@@ -1,0 +1,752 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BNC 듀얼 급여 업로드 편집기</title>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <style>
+    :root { color-scheme: light; --bg-1:#f4f1ea; --bg-2:#efe3d0; --panel:rgba(255,252,246,.94); --panel-strong:#fff; --line:rgba(106,70,25,.16); --text:#2f2418; --muted:#6f6255; --accent:#a24b2a; --accent-strong:#7e3518; --teal:#0f766e; --select:#dbeafe; --ref:#fef3c7; --keep:#dcfce7; --shadow:0 24px 60px rgba(71,44,18,.12); }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; font-family:"Segoe UI","Malgun Gothic",sans-serif; color:var(--text); background:radial-gradient(circle at top left,rgba(180,83,9,.10),transparent 24%), radial-gradient(circle at top right,rgba(15,118,110,.12),transparent 28%), linear-gradient(180deg,var(--bg-1),var(--bg-2)); }
+    .page { width:min(1600px,calc(100% - 28px)); margin:0 auto; padding:26px 0 40px; }
+    .hero,.merge-panel,.dataset-card { background:var(--panel); border:1px solid var(--line); border-radius:28px; box-shadow:var(--shadow); backdrop-filter:blur(12px); }
+    .hero { padding:28px; margin-bottom:22px; }
+    .eyebrow { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:#2f2418; color:#fff7ed; font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; }
+    h1,h2,h3,p { margin:0; }
+    .hero h1 { margin-top:16px; font-size:clamp(30px,4vw,46px); line-height:1.12; letter-spacing:-.04em; }
+    .hero p { margin-top:12px; max-width:980px; line-height:1.7; color:var(--muted); font-size:15px; }
+    .hero-grid,.datasets { display:grid; gap:18px; }
+    .hero-grid { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-top:20px; }
+    .hero-stat { padding:16px 18px; border-radius:18px; background:rgba(255,255,255,.74); border:1px solid rgba(106,70,25,.12); }
+    .hero-stat strong { display:block; margin-top:4px; font-size:17px; }
+    .datasets { grid-template-columns:1fr; align-items:start; }
+    .dataset-card { padding:22px; }
+    .dataset-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:16px; }
+    .dataset-title { display:flex; align-items:center; gap:12px; }
+    .dataset-badge { width:42px; height:42px; border-radius:14px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent-strong)); }
+    .status-pill { padding:9px 14px; border-radius:999px; background:rgba(255,255,255,.7); border:1px solid var(--line); font-size:13px; font-weight:700; color:var(--muted); white-space:nowrap; }
+    .status-pill.done { color:var(--teal); border-color:rgba(15,118,110,.25); background:rgba(15,118,110,.08); }
+    .step-indicator { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin-bottom:16px; }
+    .step-chip { padding:11px 10px; border-radius:14px; text-align:center; background:rgba(162,75,42,.07); border:1px solid rgba(162,75,42,.12); color:var(--muted); font-size:12px; font-weight:700; }
+    .step-chip.active { background:rgba(162,75,42,.18); border-color:rgba(162,75,42,.35); color:var(--accent-strong); }
+    .step-chip.done { background:rgba(15,118,110,.12); border-color:rgba(15,118,110,.28); color:var(--teal); }
+    .step-box { display:none; padding:18px; border-radius:22px; border:1px solid rgba(106,70,25,.12); background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,250,244,.92)); }
+    .step-box.active { display:block; }
+    .step-box h3 { font-size:21px; margin-bottom:8px; }
+    .step-box p { color:var(--muted); line-height:1.7; font-size:14px; }
+    .textarea { width:100%; min-height:140px; margin-top:14px; padding:14px 16px; resize:vertical; border-radius:18px; border:1px solid rgba(106,70,25,.18); background:rgba(255,255,255,.92); font:inherit; color:var(--text); }
+    .toolbar,.button-row,.merge-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    button { border:0; border-radius:14px; padding:11px 16px; font:inherit; font-weight:700; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent-strong)); cursor:pointer; transition:transform .14s ease, filter .14s ease; }
+    button:hover { transform:translateY(-1px); filter:brightness(1.02); }
+    button.secondary { color:var(--text); background:#efe7dc; }
+    button.warn { background:linear-gradient(135deg,#d97706,#b45309); }
+    button.danger { background:linear-gradient(135deg,#dc2626,#b91c1c); }
+    button.success { background:linear-gradient(135deg,#0f766e,#115e59); }
+    .preview-shell { margin-top:16px; border:1px solid rgba(106,70,25,.14); border-radius:18px; overflow:hidden; background:var(--panel-strong); }
+    .preview-label { padding:12px 14px; font-size:13px; font-weight:700; color:var(--muted); background:rgba(162,75,42,.08); border-bottom:1px solid rgba(106,70,25,.12); }
+    .table-wrap { overflow:auto; max-height:460px; }
+    table { border-collapse:collapse; width:max-content; min-width:100%; font-size:13px; }
+    th,td { border:1px solid #eadfce; padding:9px 11px; text-align:center; min-width:96px; white-space:pre-wrap; word-break:break-word; }
+    th { position:sticky; top:0; z-index:2; background:#fff8ee; color:#5f3b1d; font-weight:800; cursor:pointer; }
+    td.selectable { cursor:pointer; }
+    tr.selected-row td { background:var(--select)!important; }
+    .selected-ref-col { background:var(--ref)!important; }
+    .selected-col { background:var(--keep)!important; }
+    th.empty-col-warning { background:#fee2e2!important; border-bottom:3px solid #dc2626; }
+    .summary-box,.warning-box,.done-box { margin-top:14px; padding:14px 16px; border-radius:16px; line-height:1.7; font-size:14px; }
+    .summary-box { background:rgba(15,118,110,.08); border:1px solid rgba(15,118,110,.22); color:#115e59; }
+    .warning-box { background:rgba(217,119,6,.10); border:1px solid rgba(180,83,9,.24); color:#92400e; }
+    .done-box { background:rgba(219,234,254,.62); border:1px solid rgba(59,130,246,.20); color:#1d4ed8; }
+    .merge-panel { margin-top:22px; padding:24px; }
+    .meta-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px; }
+    .meta-card { padding:14px 16px; border-radius:18px; background:rgba(255,255,255,.76); border:1px solid rgba(106,70,25,.12); }
+    .hidden { display:none!important; }
+    @media (max-width:1080px) { .datasets { grid-template-columns:1fr; } }
+    @media (max-width:720px) { .page { width:min(100% - 16px,1600px); padding-top:14px; padding-bottom:24px; } .hero,.merge-panel,.dataset-card { border-radius:22px; } .dataset-header { flex-direction:column; } .step-indicator { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">BNC Dual Workflow</span>
+      <h1>엑셀 2개를 각각 다듬고, 마지막에 필수 매핑 기준으로 한 번에 합칩니다.</h1>
+      <p>각 데이터는 원본 payroll-upload-editor 흐름처럼 1~5단계를 따로 진행합니다. 마지막 최종완료에서는 4단계에서 남긴 필수 매핑 컬럼을 기준으로 한 줄로 합치고, 엑셀 1과 엑셀 2의 나머지 컬럼들은 오른쪽에 나란히 붙여서 다운로드합니다. 필수 매핑 헤더는 공백을 무시해 비교하므로 `성명`과 `성 명`도 같은 항목으로 인식합니다. 두 데이터의 매핑 키가 서로 맞지 않으면 먼저 경고를 띄운 뒤 계속 진행 여부를 다시 묻습니다.</p>
+      <div class="hero-grid">
+        <div class="hero-stat"><div>입력 방식</div><strong>복사 후 붙여넣기 2개</strong></div>
+        <div class="hero-stat"><div>개별 처리</div><strong>엑셀 1 / 엑셀 2 각각 1~5단계</strong></div>
+        <div class="hero-stat"><div>최종 결과</div><strong>필수 매핑 같은 행 유지 + 잔여 열 병합</strong></div>
+      </div>
+    </section>
+    <section class="datasets">
+      <article class="dataset-card" id="dataset-card-a"></article>
+      <article class="dataset-card" id="dataset-card-b"></article>
+    </section>
+    <section class="merge-panel">
+      <span class="eyebrow">Final Merge</span>
+      <h2 style="margin-top:16px; font-size:30px; letter-spacing:-0.03em;">최종완료 및 다운로드</h2>
+      <p style="margin-top:10px; color:var(--muted); line-height:1.8;">두 엑셀 모두 5단계 완료 후 실행하세요. 병합 키는 각 엑셀의 4단계에서 선택한 필수 매핑 컬럼 전체입니다. 필수 매핑 헤더는 공백을 제외하고 비교하므로 같은 의미의 헤더는 같은 열로 병합합니다. 키가 한쪽에만 있거나, 같은 키가 여러 번 나오는 경우, 혹은 필수 매핑 구성이 실제로 다르면 먼저 안내한 뒤 계속할지 확인합니다.</p>
+      <div class="meta-grid">
+        <div class="meta-card" id="meta-a">엑셀 1: 아직 완료되지 않았습니다.</div>
+        <div class="meta-card" id="meta-b">엑셀 2: 아직 완료되지 않았습니다.</div>
+        <div class="meta-card" id="meta-merge">병합 결과: 아직 생성되지 않았습니다.</div>
+      </div>
+      <div class="merge-actions">
+        <button class="success" onclick="finalizeMerge()">최종완료</button>
+        <button class="secondary" onclick="downloadFinalExcel()">엑셀 다운로드</button>
+        <button class="secondary" onclick="location.reload()">처음부터 다시</button>
+      </div>
+      <div id="merge-warning" class="warning-box hidden"></div>
+      <div id="merge-done" class="done-box hidden"></div>
+      <div class="preview-shell" style="margin-top:18px;">
+        <div class="preview-label">최종 병합 미리보기</div>
+        <div class="table-wrap"><table id="final-preview-table"></table></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const DATASET_IDS = ["a", "b"];
+    const DATASET_LABELS = { a: "엑셀 1", b: "엑셀 2" };
+    const datasets = { a: createDatasetState("a", DATASET_LABELS.a), b: createDatasetState("b", DATASET_LABELS.b) };
+    let finalMergeResult = null;
+
+    function createDatasetState(id, label) {
+      return {
+        id, label, rawData: [], cleanedData: [], workingData: [], basicData: [], remainingData: [], finalData: [],
+        selectedHeaderRows: new Set(), selectedColumns: new Set(), referenceCol: -1, currentStep: 1,
+        completed: false, summaryText: ""
+      };
+    }
+
+    function normalizeCellString(value) {
+      return String(value ?? "").replace(/[\u00A0\u1680\u180E\u2000-\u200D\u202F\u205F\u3000\uFEFF]/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    function normalizeHeaderKey(value) {
+      return normalizeCellString(value).replace(/\s+/g, "").toLowerCase();
+    }
+
+    function parseExcelNumber(value) {
+      const normalized = normalizeCellString(value).replace(/,/g, "");
+      if (normalized === "") return null;
+      if (!/^-?\d+(?:\.\d+)?$/.test(normalized)) return null;
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function parseExcelPaste(text) {
+      const rows = [];
+      let currentRow = [];
+      let currentCell = "";
+      let insideQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+        if (char === '"') {
+          if (insideQuotes && nextChar === '"') { currentCell += '"'; i++; }
+          else insideQuotes = !insideQuotes;
+        } else if (char === "\t" && !insideQuotes) {
+          currentRow.push(currentCell); currentCell = "";
+        } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+          if (char === "\r" && nextChar === "\n") i++;
+          currentRow.push(currentCell); rows.push(currentRow); currentRow = []; currentCell = "";
+        } else currentCell += char;
+      }
+      if (currentCell !== "" || currentRow.length > 0) { currentRow.push(currentCell); rows.push(currentRow); }
+      return rows;
+    }
+
+    function deepClone(data) { return JSON.parse(JSON.stringify(data)); }
+
+    function buildDatasetCard(dataset) {
+      const container = document.getElementById(`dataset-card-${dataset.id}`);
+      container.innerHTML = `
+        <div class="dataset-header">
+          <div class="dataset-title">
+            <span class="dataset-badge">${dataset.id.toUpperCase()}</span>
+            <div>
+              <h2 style="font-size:28px; letter-spacing:-0.03em;">${dataset.label}</h2>
+              <p style="margin-top:6px; color:var(--muted); line-height:1.7;">복사한 표를 붙여넣고, 헤더 정리부터 필수 매핑과 잔여 열 정리까지 독립적으로 처리합니다.</p>
+            </div>
+          </div>
+          <div class="status-pill" id="status-${dataset.id}">진행 전</div>
+        </div>
+        <div class="step-indicator" id="indicator-${dataset.id}"></div>
+        <section class="step-box" id="step-${dataset.id}-1">
+          <h3>1단계. 붙여넣기</h3>
+          <p>엑셀 범위를 그대로 복사해서 아래에 붙여넣고 확인 버튼을 누르세요.</p>
+          <textarea class="textarea" id="paste-${dataset.id}" placeholder="${dataset.label} 데이터를 여기에 붙여넣으세요."></textarea>
+          <div class="button-row"><button onclick="processPaste('${dataset.id}')">${dataset.label} 확인</button></div>
+        </section>
+        <section class="step-box" id="step-${dataset.id}-2">
+          <h3>2단계. 헤더 행 선택</h3>
+          <p>제목으로 사용할 행을 모두 클릭한 뒤 압축하세요. 선택한 행들 중 아래쪽에 있는 값이 우선 사용됩니다.</p>
+          <div class="button-row">
+            <button onclick="compressHeaders('${dataset.id}')">선택한 헤더 압축</button>
+            <button class="secondary" onclick="backToStep('${dataset.id}', 1)">1단계로 돌아가기</button>
+          </div>
+          <div class="preview-shell"><div class="preview-label">미리보기 ${dataset.label}</div><div class="table-wrap"><table id="table-${dataset.id}-step2"></table></div></div>
+        </section>
+        <section class="step-box" id="step-${dataset.id}-3">
+          <h3>3단계. 기준 열 선택</h3>
+          <p>비어 있거나 0인 행을 제거할 기준 열이 있다면 헤더를 클릭하세요. 선택하지 않으면 그대로 다음 단계로 넘어갑니다.</p>
+          <div class="button-row">
+            <button onclick="applyFilterAndGoToStep4('${dataset.id}')">4단계로 이동</button>
+            <button class="secondary" onclick="backToStep('${dataset.id}', 2)">2단계로 돌아가기</button>
+          </div>
+          <div class="preview-shell"><div class="preview-label">미리보기 ${dataset.label}</div><div class="table-wrap"><table id="table-${dataset.id}-step3"></table></div></div>
+        </section>
+        <section class="step-box" id="step-${dataset.id}-4">
+          <h3>4단계. 필수 매핑 선택</h3>
+          <p>최종 병합 시 기준이 될 필수 매핑 컬럼을 모두 선택하세요. 이름, 사번 같은 식별값을 남기는 단계입니다.</p>
+          <div class="toolbar">
+            <button class="secondary" onclick="selectAllColumns('${dataset.id}', true)">전체 선택</button>
+            <button class="secondary" onclick="selectAllColumns('${dataset.id}', false)">전체 해제</button>
+            <button class="danger" onclick="deleteSelectedColumns('${dataset.id}', 4)">선택 열 삭제</button>
+            <button onclick="confirmStep4('${dataset.id}')">필수 매핑 확정</button>
+            <button class="secondary" onclick="backToStep('${dataset.id}', 3)">3단계로 돌아가기</button>
+          </div>
+          <div class="preview-shell"><div class="preview-label">미리보기 ${dataset.label}</div><div class="table-wrap"><table id="table-${dataset.id}-step4"></table></div></div>
+        </section>
+        <section class="step-box" id="step-${dataset.id}-5">
+          <h3>5단계. 남길 열 정리</h3>
+          <p>필수 매핑을 제외한 나머지 열입니다. 필요 없는 열은 삭제하고, 합쳐야 하는 금액 열은 병합하세요. 완료하면 빈칸과 문자값은 0으로 정리됩니다.</p>
+          <div class="toolbar">
+            <button class="secondary" onclick="selectAllColumns('${dataset.id}', true)">전체 선택</button>
+            <button class="secondary" onclick="selectAllColumns('${dataset.id}', false)">전체 해제</button>
+            <button class="danger" onclick="deleteSelectedColumns('${dataset.id}', 5)">선택 열 삭제</button>
+            <button class="warn" onclick="mergeSelectedColumns('${dataset.id}')">선택 열 합치기</button>
+            <button class="success" onclick="confirmStep5('${dataset.id}')">${dataset.label} 5단계 완료</button>
+            <button class="secondary" onclick="backToStep('${dataset.id}', 4)">4단계로 돌아가기</button>
+          </div>
+          <div class="preview-shell"><div class="preview-label">미리보기 ${dataset.label}</div><div class="table-wrap"><table id="table-${dataset.id}-step5"></table></div></div>
+          <div id="done-${dataset.id}" class="summary-box hidden"></div>
+        </section>`;
+      renderStepIndicator(dataset.id);
+      renderDataset(dataset.id);
+    }
+
+    function renderStepIndicator(datasetId) {
+      const dataset = datasets[datasetId];
+      const indicator = document.getElementById(`indicator-${datasetId}`);
+      indicator.innerHTML = "";
+      ["붙여넣기", "헤더", "기준 열", "필수 매핑", "잔여 열"].forEach((name, index) => {
+        const stepNo = index + 1;
+        const chip = document.createElement("div");
+        chip.className = "step-chip";
+        if (dataset.completed || stepNo < dataset.currentStep) chip.classList.add("done");
+        if (!dataset.completed && stepNo === dataset.currentStep) chip.classList.add("active");
+        chip.textContent = `${stepNo}. ${name}`;
+        indicator.appendChild(chip);
+      });
+    }
+
+    function renderDataset(datasetId) {
+      const dataset = datasets[datasetId];
+      for (let step = 1; step <= 5; step++) {
+        const section = document.getElementById(`step-${datasetId}-${step}`);
+        section.classList.toggle("active", dataset.currentStep === step);
+      }
+      const status = document.getElementById(`status-${datasetId}`);
+      status.className = `status-pill${dataset.completed ? " done" : ""}`;
+      status.textContent = dataset.completed ? "5단계 완료" : `${dataset.currentStep}단계 진행 중`;
+      const doneBox = document.getElementById(`done-${datasetId}`);
+      if (dataset.completed) { doneBox.textContent = dataset.summaryText; doneBox.classList.remove("hidden"); }
+      else doneBox.classList.add("hidden");
+      renderStepIndicator(datasetId);
+      updateMetaCards();
+    }
+
+    function processPaste(datasetId) {
+      const dataset = datasets[datasetId];
+      const text = document.getElementById(`paste-${datasetId}`).value;
+      if (!text.trim()) return alert(`${dataset.label} 데이터를 붙여넣어 주세요.`);
+      const parsed = parseExcelPaste(text).map(row => row.map(cell => normalizeCellString(cell))).filter(row => row.some(cell => cell !== ""));
+      if (!parsed.length) return alert(`${dataset.label}에서 읽을 수 있는 데이터가 없습니다.`);
+      dataset.rawData = parsed;
+      dataset.cleanedData = [];
+      dataset.workingData = [];
+      dataset.basicData = [];
+      dataset.remainingData = [];
+      dataset.finalData = [];
+      dataset.selectedHeaderRows = new Set();
+      dataset.selectedColumns = new Set();
+      dataset.referenceCol = -1;
+      dataset.completed = false;
+      dataset.summaryText = "";
+      dataset.currentStep = 2;
+      renderStep2(datasetId);
+      renderDataset(datasetId);
+    }
+
+    function renderStep2(datasetId) {
+      const dataset = datasets[datasetId];
+      const table = document.getElementById(`table-${datasetId}-step2`);
+      table.innerHTML = "";
+      const maxCols = Math.max(...dataset.rawData.map(row => row.length));
+      const previewLimit = Math.min(dataset.rawData.length, 15);
+      for (let r = 0; r < previewLimit; r++) {
+        const tr = document.createElement("tr");
+        if (dataset.selectedHeaderRows.has(r)) tr.classList.add("selected-row");
+        tr.onclick = () => toggleHeaderRow(datasetId, r);
+        for (let c = 0; c < maxCols; c++) {
+          const td = document.createElement("td");
+          td.className = "selectable";
+          td.textContent = dataset.rawData[r][c] || "";
+          tr.appendChild(td);
+        }
+        table.appendChild(tr);
+      }
+    }
+
+    function toggleHeaderRow(datasetId, rowIndex) {
+      const dataset = datasets[datasetId];
+      if (dataset.selectedHeaderRows.has(rowIndex)) dataset.selectedHeaderRows.delete(rowIndex);
+      else dataset.selectedHeaderRows.add(rowIndex);
+      renderStep2(datasetId);
+    }
+
+    function compressHeaders(datasetId) {
+      const dataset = datasets[datasetId];
+      if (!dataset.selectedHeaderRows.size) return alert(`${dataset.label}에서 최소 1개 헤더 행을 선택해 주세요.`);
+      const headerRows = Array.from(dataset.selectedHeaderRows).sort((a, b) => a - b);
+      const maxCols = Math.max(...dataset.rawData.map(row => row.length));
+      const headerGrid = headerRows.map(rowIndex => {
+        const row = [];
+        for (let c = 0; c < maxCols; c++) row.push(dataset.rawData[rowIndex][c] || "");
+        return row;
+      });
+      const newHeader = [];
+      for (let c = 0; c < maxCols; c++) {
+        let resolved = "";
+        for (let r = headerGrid.length - 1; r >= 0; r--) {
+          const val = normalizeCellString(headerGrid[r][c]).replace(/[\r\n]+/g, " ");
+          if (val) { resolved = val; break; }
+        }
+        newHeader.push(resolved || `Column_${c + 1}`);
+      }
+      dataset.cleanedData = [newHeader];
+      const lastHeaderRow = Math.max(...headerRows);
+      for (let r = lastHeaderRow + 1; r < dataset.rawData.length; r++) {
+        const padded = [];
+        for (let c = 0; c < maxCols; c++) padded.push(dataset.rawData[r][c] || "");
+        if (padded.some(cell => normalizeCellString(cell) !== "")) dataset.cleanedData.push(padded);
+      }
+      dataset.referenceCol = -1;
+      dataset.currentStep = 3;
+      renderStep3(datasetId);
+      renderDataset(datasetId);
+    }
+
+    function renderPreviewTable(table, data, onCellReady) {
+      table.innerHTML = "";
+      const previewLimit = Math.min(data.length, 10);
+      for (let r = 0; r < previewLimit; r++) {
+        const tr = document.createElement("tr");
+        data[r].forEach((cell, c) => {
+          const element = document.createElement(r === 0 ? "th" : "td");
+          element.textContent = cell;
+          if (onCellReady) onCellReady(r, c, element);
+          tr.appendChild(element);
+        });
+        table.appendChild(tr);
+      }
+    }
+    function renderStep3(datasetId) {
+      const dataset = datasets[datasetId];
+      const table = document.getElementById(`table-${datasetId}-step3`);
+      renderPreviewTable(table, dataset.cleanedData, (rowIndex, colIndex, element) => {
+        if (rowIndex === 0) {
+          element.onclick = () => selectReferenceColumn(datasetId, colIndex);
+          if (dataset.referenceCol === colIndex) element.classList.add("selected-ref-col");
+        }
+      });
+      highlightReferenceColumn(datasetId);
+    }
+
+    function selectReferenceColumn(datasetId, colIndex) {
+      datasets[datasetId].referenceCol = colIndex;
+      highlightReferenceColumn(datasetId);
+    }
+
+    function highlightReferenceColumn(datasetId) {
+      const dataset = datasets[datasetId];
+      const table = document.getElementById(`table-${datasetId}-step3`);
+      table.querySelectorAll("th, td").forEach(cell => cell.classList.remove("selected-ref-col"));
+      if (dataset.referenceCol < 0) return;
+      table.querySelectorAll("tr").forEach(row => {
+        if (row.children[dataset.referenceCol]) row.children[dataset.referenceCol].classList.add("selected-ref-col");
+      });
+    }
+
+    function applyFilterAndGoToStep4(datasetId) {
+      const dataset = datasets[datasetId];
+      if (!dataset.cleanedData.length) return;
+      let filtered = [dataset.cleanedData[0]];
+      if (dataset.referenceCol < 0) filtered = deepClone(dataset.cleanedData);
+      else {
+        for (let i = 1; i < dataset.cleanedData.length; i++) {
+          const val = normalizeCellString(dataset.cleanedData[i][dataset.referenceCol]);
+          if (val !== "" && val !== "0" && val !== "-") filtered.push(dataset.cleanedData[i]);
+        }
+      }
+      dataset.workingData = filtered;
+      dataset.selectedColumns = new Set();
+      dataset.currentStep = 4;
+      renderSelectableStepTable(datasetId, 4);
+      renderDataset(datasetId);
+    }
+
+    function isColumnEmptyOrZero(dataset, colIndex) {
+      for (let r = 1; r < dataset.workingData.length; r++) {
+        const val = normalizeCellString(dataset.workingData[r][colIndex]).replace(/,/g, "");
+        if (val !== "" && val !== "0" && val !== "-" && val !== "0.0" && val !== "0.00") return false;
+      }
+      return true;
+    }
+
+    function renderSelectableStepTable(datasetId, stepNo) {
+      const dataset = datasets[datasetId];
+      const table = document.getElementById(`table-${datasetId}-step${stepNo}`);
+      table.innerHTML = "";
+      if (!dataset.workingData.length || !dataset.workingData[0].length) {
+        table.innerHTML = "<tr><td>표시할 데이터가 없습니다.</td></tr>";
+        return;
+      }
+      const headerRow = document.createElement("tr");
+      dataset.workingData[0].forEach((headerText, colIndex) => {
+        const th = document.createElement("th");
+        if (stepNo === 5 && isColumnEmptyOrZero(dataset, colIndex)) {
+          th.classList.add("empty-col-warning");
+          th.innerHTML = `<span style="display:block; font-size:11px; margin-bottom:4px; color:#b91c1c;">주의: 비어있음/0</span>${headerText}`;
+        } else th.textContent = headerText;
+        th.onclick = () => toggleColumn(datasetId, colIndex, stepNo);
+        if (dataset.selectedColumns.has(colIndex)) th.classList.add("selected-col");
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+      const previewLimit = Math.min(dataset.workingData.length, 15);
+      for (let r = 1; r < previewLimit; r++) {
+        const tr = document.createElement("tr");
+        dataset.workingData[r].forEach((cell, colIndex) => {
+          const td = document.createElement("td");
+          td.textContent = cell;
+          if (dataset.selectedColumns.has(colIndex)) td.classList.add("selected-col");
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      }
+    }
+
+    function toggleColumn(datasetId, colIndex, stepNo) {
+      const dataset = datasets[datasetId];
+      if (dataset.selectedColumns.has(colIndex)) dataset.selectedColumns.delete(colIndex);
+      else dataset.selectedColumns.add(colIndex);
+      renderSelectableStepTable(datasetId, stepNo);
+    }
+
+    function selectAllColumns(datasetId, isSelect) {
+      const dataset = datasets[datasetId];
+      dataset.selectedColumns = new Set();
+      if (isSelect && dataset.workingData[0]) dataset.workingData[0].forEach((_, index) => dataset.selectedColumns.add(index));
+      renderSelectableStepTable(datasetId, dataset.currentStep);
+    }
+
+    function deleteSelectedColumns(datasetId, stepNo) {
+      const dataset = datasets[datasetId];
+      if (!dataset.selectedColumns.size) return alert("먼저 삭제할 열을 선택해 주세요.");
+      if (!confirm(`선택한 ${dataset.selectedColumns.size}개 열을 삭제할까요?`)) return;
+      dataset.workingData = dataset.workingData.map(row => row.filter((_, index) => !dataset.selectedColumns.has(index)));
+      dataset.selectedColumns = new Set();
+      renderSelectableStepTable(datasetId, stepNo);
+    }
+
+    function confirmStep4(datasetId) {
+      const dataset = datasets[datasetId];
+      if (!dataset.selectedColumns.size) return alert("최종 병합 기준이 될 필수 매핑 열을 최소 1개 선택해 주세요.");
+      const basicIndexes = Array.from(dataset.selectedColumns).sort((a, b) => a - b);
+      const remainIndexes = dataset.workingData[0].map((_, index) => index).filter(index => !dataset.selectedColumns.has(index));
+      dataset.basicData = dataset.workingData.map(row => basicIndexes.map(index => row[index]));
+      dataset.remainingData = dataset.workingData.map(row => remainIndexes.map(index => row[index]));
+      dataset.workingData = deepClone(dataset.remainingData);
+      dataset.selectedColumns = new Set();
+      dataset.currentStep = 5;
+      renderSelectableStepTable(datasetId, 5);
+      renderDataset(datasetId);
+    }
+
+    function mergeSelectedColumns(datasetId) {
+      const dataset = datasets[datasetId];
+      const selected = Array.from(dataset.selectedColumns).sort((a, b) => a - b);
+      if (selected.length < 2) return alert("합칠 열을 2개 이상 선택해 주세요.");
+      const firstColIndex = selected[0];
+      const defaultTitle = dataset.workingData[0][firstColIndex];
+      const newTitle = prompt("합쳐진 열의 제목을 입력해 주세요.", defaultTitle);
+      if (newTitle === null) return;
+      for (let r = 0; r < dataset.workingData.length; r++) {
+        if (r === 0) { dataset.workingData[r][firstColIndex] = normalizeCellString(newTitle) || defaultTitle; continue; }
+        let sum = 0;
+        selected.forEach(index => {
+          const parsed = parseExcelNumber(dataset.workingData[r][index]);
+          if (parsed !== null) sum += parsed;
+        });
+        dataset.workingData[r][firstColIndex] = sum;
+      }
+      const removeSet = new Set(selected.slice(1));
+      dataset.workingData = dataset.workingData.map(row => row.filter((_, index) => !removeSet.has(index)));
+      dataset.selectedColumns = new Set();
+      renderSelectableStepTable(datasetId, 5);
+    }
+
+    function confirmStep5(datasetId) {
+      const dataset = datasets[datasetId];
+      if (!confirm(`${dataset.label}의 남은 열을 확정하고, 빈칸/문자값을 0으로 정리할까요?`)) return;
+      for (let r = 1; r < dataset.workingData.length; r++) {
+        for (let c = 0; c < dataset.workingData[r].length; c++) {
+          const val = normalizeCellString(dataset.workingData[r][c]);
+          const num = parseExcelNumber(val);
+          dataset.workingData[r][c] = num === null ? "0" : val;
+        }
+      }
+      dataset.remainingData = deepClone(dataset.workingData);
+      dataset.finalData = dataset.basicData.map((row, index) => [...row, ...(dataset.remainingData[index] || [])]);
+      dataset.summaryText = `${dataset.label} 완료: 필수 매핑 ${dataset.basicData[0]?.length || 0}개, 남은 열 ${dataset.remainingData[0]?.length || 0}개, 데이터 ${Math.max(dataset.finalData.length - 1, 0)}행`;
+      dataset.completed = true;
+      dataset.currentStep = 5;
+      renderSelectableStepTable(datasetId, 5);
+      renderDataset(datasetId);
+    }
+
+    function backToStep(datasetId, stepNo) {
+      const dataset = datasets[datasetId];
+      dataset.currentStep = stepNo;
+      dataset.selectedColumns = new Set();
+      if (stepNo === 2) renderStep2(datasetId);
+      if (stepNo === 3) renderStep3(datasetId);
+      if (stepNo === 4 || stepNo === 5) renderSelectableStepTable(datasetId, stepNo);
+      renderDataset(datasetId);
+    }
+
+    function getHeaders(dataset, section) {
+      if (section === "basic") return dataset.basicData[0] || [];
+      if (section === "remaining") return dataset.remainingData[0] || [];
+      return [];
+    }
+
+    function getBodyRows(dataset, section) {
+      if (section === "basic") return dataset.basicData.slice(1);
+      if (section === "remaining") return dataset.remainingData.slice(1);
+      return [];
+    }
+
+    function createRowObject(headers, row) {
+      const obj = {};
+      headers.forEach((header, index) => { obj[normalizeHeaderKey(header)] = normalizeCellString(row[index] || ""); });
+      return obj;
+    }
+
+    function serializeKey(headers, row) {
+      return headers
+        .map((header, index) => [normalizeHeaderKey(header), normalizeCellString(row[index] || "")])
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([headerKey, value]) => `${headerKey}::${value}`)
+        .join("||");
+    }
+
+    function compareHeaderSignature(headersA, headersB) {
+      if (headersA.length !== headersB.length) return false;
+      for (let i = 0; i < headersA.length; i++) {
+        if (normalizeHeaderKey(headersA[i]) !== normalizeHeaderKey(headersB[i])) return false;
+      }
+      return true;
+    }
+    function finalizeMerge() {
+      const datasetA = datasets.a;
+      const datasetB = datasets.b;
+      const warningBox = document.getElementById("merge-warning");
+      const doneBox = document.getElementById("merge-done");
+      warningBox.classList.add("hidden");
+      doneBox.classList.add("hidden");
+      warningBox.innerHTML = "";
+      doneBox.textContent = "";
+      if (!datasetA.completed || !datasetB.completed) return alert("엑셀 1과 엑셀 2를 모두 5단계까지 완료한 뒤 실행해 주세요.");
+
+      const basicHeadersA = getHeaders(datasetA, "basic");
+      const basicHeadersB = getHeaders(datasetB, "basic");
+      const remainingHeadersA = getHeaders(datasetA, "remaining");
+      const remainingHeadersB = getHeaders(datasetB, "remaining");
+      const basicRowsA = getBodyRows(datasetA, "basic");
+      const basicRowsB = getBodyRows(datasetB, "basic");
+      const remainingRowsA = getBodyRows(datasetA, "remaining");
+      const remainingRowsB = getBodyRows(datasetB, "remaining");
+      const warnings = [];
+      if (!compareHeaderSignature(basicHeadersA, basicHeadersB)) warnings.push("4단계 필수 매핑 헤더 구성이 실제로 다릅니다. 공백을 제외하고도 다를 때만 이 경고가 표시됩니다.");
+
+      const mapA = new Map();
+      const mapB = new Map();
+      const duplicatesA = [];
+      const duplicatesB = [];
+      basicRowsA.forEach((basicRow, index) => {
+        const key = serializeKey(basicHeadersA, basicRow);
+        if (mapA.has(key)) duplicatesA.push(index + 2);
+        else mapA.set(key, { basicRow, remainRow: remainingRowsA[index] || [] });
+      });
+      basicRowsB.forEach((basicRow, index) => {
+        const key = serializeKey(basicHeadersB, basicRow);
+        if (mapB.has(key)) duplicatesB.push(index + 2);
+        else mapB.set(key, { basicRow, remainRow: remainingRowsB[index] || [] });
+      });
+      if (duplicatesA.length) warnings.push(`엑셀 1에서 같은 필수 매핑 키가 중복된 행이 있습니다. 중복 행 번호: ${duplicatesA.join(", ")}. 첫 번째 행만 사용합니다.`);
+      if (duplicatesB.length) warnings.push(`엑셀 2에서 같은 필수 매핑 키가 중복된 행이 있습니다. 중복 행 번호: ${duplicatesB.join(", ")}. 첫 번째 행만 사용합니다.`);
+
+      const keysA = new Set(mapA.keys());
+      const keysB = new Set(mapB.keys());
+      const onlyA = Array.from(keysA).filter(key => !keysB.has(key));
+      const onlyB = Array.from(keysB).filter(key => !keysA.has(key));
+      if (onlyA.length) warnings.push(`엑셀 1에만 있는 필수 매핑 키가 ${onlyA.length}건 있습니다.`);
+      if (onlyB.length) warnings.push(`엑셀 2에만 있는 필수 매핑 키가 ${onlyB.length}건 있습니다.`);
+
+      if (warnings.length) {
+        warningBox.innerHTML = warnings.join("<br>");
+        warningBox.classList.remove("hidden");
+        if (!confirm(`${warnings.length}개의 확인 사항이 있습니다. 그래도 엑셀 변환을 계속할까요?`)) return;
+      }
+
+      const mergedBasicHeaders = [...basicHeadersA];
+      basicHeadersB.forEach(header => {
+        if (!mergedBasicHeaders.some(existing => normalizeHeaderKey(existing) === normalizeHeaderKey(header))) mergedBasicHeaders.push(header);
+      });
+
+      const finalHeaders = [
+        ...mergedBasicHeaders,
+        ...remainingHeadersA,
+        ...remainingHeadersB
+      ];
+
+      const orderedKeys = [];
+      mapA.forEach((_, key) => orderedKeys.push(key));
+      mapB.forEach((_, key) => { if (!orderedKeys.includes(key)) orderedKeys.push(key); });
+
+      const mergedRows = orderedKeys.map(key => {
+        const rowA = mapA.get(key);
+        const rowB = mapB.get(key);
+        const basicObject = {};
+        if (rowA) Object.assign(basicObject, createRowObject(basicHeadersA, rowA.basicRow));
+        if (rowB) Object.assign(basicObject, createRowObject(basicHeadersB, rowB.basicRow));
+        const basicPart = mergedBasicHeaders.map(header => basicObject[normalizeHeaderKey(header)] || "");
+        const partA = rowA ? rowA.remainRow : remainingHeadersA.map(() => "0");
+        const partB = rowB ? rowB.remainRow : remainingHeadersB.map(() => "0");
+        return [...basicPart, ...partA, ...partB];
+      });
+
+      finalMergeResult = { headers: finalHeaders, rows: mergedRows, warnings, rowCount: mergedRows.length, basicHeaderCount: mergedBasicHeaders.length };
+      renderFinalPreview();
+      doneBox.textContent = `병합 완료: 필수 매핑 ${mergedBasicHeaders.length}개, 엑셀1 잔여 열 ${remainingHeadersA.length}개, 엑셀2 잔여 열 ${remainingHeadersB.length}개, 총 ${mergedRows.length}행`;
+      doneBox.classList.remove("hidden");
+      updateMetaCards();
+    }
+
+    function renderFinalPreview() {
+      const table = document.getElementById("final-preview-table");
+      if (!finalMergeResult) {
+        table.innerHTML = "<tr><td>아직 병합 결과가 없습니다.</td></tr>";
+        return;
+      }
+      renderPreviewTable(table, [finalMergeResult.headers, ...finalMergeResult.rows]);
+    }
+
+    async function downloadFinalExcel() {
+      if (!finalMergeResult) return alert("먼저 최종완료를 눌러 병합 결과를 만들어 주세요.");
+      if (typeof ExcelJS === "undefined") return alert("ExcelJS를 불러오지 못했습니다.");
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Codex";
+      workbook.created = new Date();
+      const worksheet = workbook.addWorksheet("BNC Merge", { views: [{ state: "frozen", ySplit: 4 }] });
+      const totalColumns = finalMergeResult.headers.length;
+      const bodyRows = finalMergeResult.rows.map(row =>
+        row.map((cell, colIndex) => {
+          const parsed = colIndex >= finalMergeResult.basicHeaderCount ? parseExcelNumber(cell) : null;
+          return parsed === null ? normalizeCellString(cell) : parsed;
+        })
+      );
+
+      worksheet.mergeCells(1, 1, 1, totalColumns);
+      worksheet.getCell(1, 1).value = "BNC Dual Payroll Merge";
+      worksheet.getCell(1, 1).font = { name: "Arial", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
+      worksheet.getCell(1, 1).alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.getCell(1, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7E3518" } };
+
+      worksheet.mergeCells(2, 1, 2, totalColumns);
+      worksheet.getCell(2, 1).value = `Generated at ${new Date().toLocaleString()}`;
+      worksheet.getCell(2, 1).font = { name: "Arial", size: 10, color: { argb: "FF6F6255" } };
+
+      worksheet.mergeCells(3, 1, 3, totalColumns);
+      worksheet.getCell(3, 1).value = finalMergeResult.warnings.length ? `Warnings: ${finalMergeResult.warnings.join(" / ")}` : "Warnings: none";
+      worksheet.getCell(3, 1).font = { name: "Arial", size: 10, color: { argb: "FF92400E" } };
+      worksheet.getCell(3, 1).alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+
+      const headerRowNumber = 4;
+      const headerRow = worksheet.getRow(headerRowNumber);
+      finalMergeResult.headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index < finalMergeResult.basicHeaderCount ? "FF334155" : "FFA24B2A" } };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE7D9C7" } }, left: { style: "thin", color: { argb: "FFE7D9C7" } },
+          bottom: { style: "thin", color: { argb: "FFE7D9C7" } }, right: { style: "thin", color: { argb: "FFE7D9C7" } }
+        };
+      });
+
+      bodyRows.forEach((row, rowIndex) => {
+        const excelRow = worksheet.getRow(headerRowNumber + 1 + rowIndex);
+        row.forEach((value, colIndex) => {
+          const cell = excelRow.getCell(colIndex + 1);
+          const isNumeric = typeof value === "number";
+          cell.value = value;
+          cell.alignment = { horizontal: isNumeric ? "right" : "center", vertical: "middle", wrapText: true };
+          if (isNumeric) cell.numFmt = "#,##0.##";
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowIndex % 2 === 0 ? "FFFFFBF5" : "FFFFFFFF" } };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFF0E6D8" } }, left: { style: "thin", color: { argb: "FFF0E6D8" } },
+            bottom: { style: "thin", color: { argb: "FFF0E6D8" } }, right: { style: "thin", color: { argb: "FFF0E6D8" } }
+          };
+        });
+      });
+
+      finalMergeResult.headers.forEach((header, colIndex) => {
+        const values = [header, ...bodyRows.map(row => row[colIndex])].map(value => String(value ?? ""));
+        const maxLength = values.reduce((max, value) => Math.max(max, value.length), 0);
+        worksheet.getColumn(colIndex + 1).width = colIndex >= finalMergeResult.basicHeaderCount ? Math.max(14, Math.min(maxLength + 2, 18)) : Math.max(12, Math.min(maxLength + 4, 28));
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "bnc-dual-payroll-merge.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function updateMetaCards() {
+      document.getElementById("meta-a").textContent = datasets.a.completed ? datasets.a.summaryText : "엑셀 1: 아직 완료되지 않았습니다.";
+      document.getElementById("meta-b").textContent = datasets.b.completed ? datasets.b.summaryText : "엑셀 2: 아직 완료되지 않았습니다.";
+      document.getElementById("meta-merge").textContent = finalMergeResult ? `병합 결과: 총 ${finalMergeResult.rowCount}행, 헤더 ${finalMergeResult.headers.length}개` : "병합 결과: 아직 생성되지 않았습니다.";
+    }
+
+    DATASET_IDS.forEach(datasetId => buildDatasetCard(datasets[datasetId]));
+    renderFinalPreview();
+    updateMetaCards();
+  </script>
+</body>
+</html>
+
+
+
+
+

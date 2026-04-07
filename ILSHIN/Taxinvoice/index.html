@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>세금계산서 일괄 발급 편집기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=SUIT:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f6f0e6;--card:rgba(255,251,245,.94);--line:#dccdb9;--ink:#2e261c;--muted:#6d5f4d;--accent:#b7603c;--olive:#5f764f;--bad:#af2d22;--badbg:#fde7e5}
+    *{box-sizing:border-box}body{margin:0;font-family:"SUIT",sans-serif;color:var(--ink);background:linear-gradient(180deg,#fcf8f2 0%,var(--bg) 100%)}
+    .wrap{max-width:1500px;margin:0 auto;padding:24px}.panel,.section{background:var(--card);border:1px solid var(--line);border-radius:24px}.panel{padding:24px;box-shadow:0 18px 50px rgba(74,51,24,.08)}
+    .section{padding:20px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}table{width:100%;min-width:1100px;border-collapse:collapse}th,td{padding:11px 12px;border-bottom:1px solid #eadfce;text-align:left;vertical-align:top;font-size:14px}th{position:sticky;top:0;background:#faf2e8;font-weight:800}tr:last-child td{border-bottom:none}
+    textarea,input,select{width:100%;padding:10px 12px;border:1px solid #d3c3ab;border-radius:14px;background:#fff;font:inherit;outline:none}textarea:focus,input:focus,select:focus{border-color:#b7603c;box-shadow:0 0 0 4px rgba(183,96,60,.1)}
+    .btn{border:0;border-radius:14px;padding:11px 16px;font:inherit;font-weight:800;cursor:pointer}.btn:disabled{opacity:.45;cursor:not-allowed}.pri{background:var(--accent);color:#fff}.soft{background:#fff;border:1px solid var(--line)}.okb{background:var(--olive);color:#fff}.bad{background:var(--badbg);color:var(--bad);border:1px solid rgba(175,45,34,.18)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer}.pill.on{background:#f4ddd1;border-color:#b7603c}.dot{width:16px;height:16px;border-radius:999px;border:1px solid currentColor;display:inline-flex;align-items:center;justify-content:center}.pill.on .dot:after{content:"";width:7px;height:7px;border-radius:999px;background:currentColor}
+    .status{padding:12px 14px;border-radius:16px;font-size:14px;line-height:1.6}.ok{background:#e0ead7;color:#355225}.err{background:var(--badbg);color:#93241b}.hide{display:none}.money{cursor:text;border-bottom:1px dashed #7b6e5f}.pick{outline:2px solid rgba(183,96,60,.4);outline-offset:-2px;background:#fbefe7}.split{border:1px solid var(--line);border-radius:16px;padding:12px;background:#fffcf7}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <div id="setupStage">
+      <div id="heroSection" class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div>
+          <div class="inline-flex rounded-full border border-[#dfcfbb] bg-white px-3 py-1 text-xs font-bold tracking-[.18em] text-[#8b7357]">TAX INVOICE WORKBENCH</div>
+          <h1 class="mt-4 text-3xl font-extrabold tracking-[-.04em] md:text-5xl">세금계산서 일괄 발급 편집기</h1>
+          <p class="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)] md:text-base">복사 붙여넣기 후 제목 행만 정하면 필요한 열만 남겨 편집합니다. 분류 기준은 JS 파일로 저장/불러오기 하고, 엑셀은 지정한 양식 파일에 맞춰 작성합니다.</p>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div class="section"><div class="text-xs font-bold uppercase tracking-[.18em] text-[#8d7357]">Step 1</div><div class="mt-2 text-lg font-extrabold">데이터 읽기</div></div>
+          <div class="section"><div class="text-xs font-bold uppercase tracking-[.18em] text-[#8d7357]">Step 2</div><div class="mt-2 text-lg font-extrabold">제목 행 확정</div></div>
+          <div class="section"><div class="text-xs font-bold uppercase tracking-[.18em] text-[#8d7357]">Step 3</div><div class="mt-2 text-lg font-extrabold">분류 / 출력</div></div>
+        </div>
+      </div>
+
+      <div id="inputStage" class="mt-7 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+        <section class="section">
+          <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div class="text-sm font-bold text-[#8d7357]">1. 데이터 입력</div>
+              <h2 class="mt-1 text-2xl font-extrabold">붙여넣기 또는 파일 불러오기</h2>
+            </div>
+            <div class="text-sm font-bold text-[#5b4b3b]">인식 제목: 코드 / 거래처명 / 잔액 / 사업자번호</div>
+          </div>
+          <div class="mt-5 grid gap-4">
+            <textarea id="pasteArea" rows="8" placeholder="엑셀 범위를 그대로 붙여넣으세요."></textarea>
+            <div class="flex flex-wrap gap-3">
+              <button id="pasteButton" class="btn pri">붙여넣은 데이터 읽기</button>
+              <label class="btn soft">파일 불러오기<input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hide"></label>
+              <button id="resetButton" class="btn bad">초기화</button>
+            </div>
+          </div>
+        </section>
+        <section class="section">
+          <div class="text-sm font-bold text-[#8d7357]">안내</div>
+          <div class="mt-3 space-y-2 text-sm leading-6 text-[var(--muted)]">
+            <div>1. 사업자번호가 없는 행은 자동 제외합니다.</div>
+            <div>2. 잔액은 자동으로 `-1` 반영 후 더블클릭으로 수정할 수 있습니다.</div>
+            <div>3. `기타`는 직접 출력 내용을 입력합니다.</div>
+            <div>4. 저장 기준은 JS 파일로 내보내고 다시 불러옵니다.</div>
+            <div>5. 대량 행 입력 렉을 줄이기 위해 기본 50행만 렌더합니다.</div>
+          </div>
+          <div id="globalStatus" class="status ok mt-5">준비됨. 데이터를 읽으면 제목 행 선택 단계로 넘어갑니다.</div>
+        </section>
+      </div>
+
+      <section id="headerSection" class="section mt-7 hide">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div class="text-sm font-bold text-[#8d7357]">2. 제목 행 선택</div>
+            <h2 class="mt-1 text-2xl font-extrabold">제목 행을 한 줄 지정하세요</h2>
+          </div>
+          <button id="confirmHeaderButton" class="btn pri" disabled>제목 행 확인</button>
+        </div>
+        <div class="table-wrap mt-5"><table id="headerTable"></table></div>
+      </section>
+
+      </div>
+
+      <section id="editorSection" class="section mt-7 hide">
+        <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div class="text-sm font-bold text-[#8d7357]">3. 분류 편집</div>
+            <h2 class="mt-1 text-2xl font-extrabold">세금계산서용 데이터 정리</h2>
+            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">불러온 기준은 `기억 기장료`로 채워지고, 필요할 때 혼합 초안을 만들 수 있습니다.</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <label class="btn soft">분류 불러오기<input id="memoryFileInput" type="file" accept=".js,.json" class="hide"></label>
+            <button id="applyMemoryButton" class="btn soft">불러온 값으로 혼합 초안 만들기</button>
+            <button id="saveMemoryButton" class="btn soft">분류 저장하기</button>
+            <button id="exportButton" class="btn okb">세금계산서용 엑셀 다운로드</button>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-4 lg:grid-cols-3">
+          <div class="section !p-4"><div class="text-xs font-bold uppercase tracking-[.18em] text-[#8d7357]">Rows</div><div id="rowCount" class="mt-2 text-3xl font-extrabold">0</div></div>
+          <div class="section !p-4"><div class="text-xs font-bold uppercase tracking-[.18em] text-[#8d7357]">Mixed</div><div id="mixedCount" class="mt-2 text-3xl font-extrabold">0</div></div>
+          <div class="section !p-4"><div class="text-xs font-bold uppercase tracking-[.18em] text-[#8d7357]">Memory</div><div id="memoryCount" class="mt-2 text-3xl font-extrabold">0</div></div>
+        </div>
+
+        <div class="mt-5 grid gap-4 lg:grid-cols-4">
+          <div><label class="mb-2 block text-sm font-bold">연도</label><input id="invoiceYearInput" type="number" min="2000" max="2100" placeholder="2026"></div>
+          <div><label class="mb-2 block text-sm font-bold">월</label><input id="invoiceMonthInput" type="number" min="1" max="12" placeholder="4"></div>
+          <div class="lg:col-span-2"><label class="mb-2 block text-sm font-bold">양식 엑셀 파일</label><label class="btn soft w-full text-center">양식 불러오기<input id="templateFileInput" type="file" accept=".xlsx,.xlsm" class="hide"></label><div id="templateStatus" class="mt-2 text-sm text-[var(--muted)]">아직 양식 파일을 선택하지 않았습니다.</div></div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center gap-3">
+          <span class="text-sm font-bold">페이지 크기</span>
+          <select id="pageSizeSelect" class="!w-auto min-w-[110px]"><option value="25">25행</option><option value="50" selected>50행</option><option value="100">100행</option><option value="0">전체</option></select>
+          <span id="pageInfo" class="text-sm font-bold">1 / 1</span>
+          <button id="prevPageButton" class="btn soft !py-2">이전</button>
+          <button id="nextPageButton" class="btn soft !py-2">다음</button>
+        </div>
+
+        <div id="validationSummary" class="status ok mt-5">검증 전입니다. 다운로드 시 자동으로 다시 확인합니다.</div>
+        <div class="table-wrap mt-5"><table id="editorTable"></table></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const CATS=["기장료","조정료","기타","혼합"], SPLITS=["기장료","조정료","기타"];
+    const state={raw:[],header:null,rows:[],memory:{},validation:{},timer:null,pageSize:50,page:1,template:null,templateType:"xlsx"};
+    const el={
+      pasteArea:document.getElementById("pasteArea"),fileInput:document.getElementById("fileInput"),memoryFileInput:document.getElementById("memoryFileInput"),templateFileInput:document.getElementById("templateFileInput"),
+      pasteButton:document.getElementById("pasteButton"),resetButton:document.getElementById("resetButton"),globalStatus:document.getElementById("globalStatus"),
+      setupStage:document.getElementById("setupStage"),heroSection:document.getElementById("heroSection"),inputStage:document.getElementById("inputStage"),headerSection:document.getElementById("headerSection"),headerTable:document.getElementById("headerTable"),confirmHeaderButton:document.getElementById("confirmHeaderButton"),
+      editorSection:document.getElementById("editorSection"),editorTable:document.getElementById("editorTable"),applyMemoryButton:document.getElementById("applyMemoryButton"),saveMemoryButton:document.getElementById("saveMemoryButton"),exportButton:document.getElementById("exportButton"),
+      rowCount:document.getElementById("rowCount"),mixedCount:document.getElementById("mixedCount"),memoryCount:document.getElementById("memoryCount"),validationSummary:document.getElementById("validationSummary"),
+      pageSizeSelect:document.getElementById("pageSizeSelect"),pageInfo:document.getElementById("pageInfo"),prevPageButton:document.getElementById("prevPageButton"),nextPageButton:document.getElementById("nextPageButton"),
+      invoiceYearInput:document.getElementById("invoiceYearInput"),invoiceMonthInput:document.getElementById("invoiceMonthInput"),templateStatus:document.getElementById("templateStatus")
+    };
+    el.pasteButton.onclick=readPaste; el.fileInput.onchange=readFile; el.confirmHeaderButton.onclick=confirmHeader; el.resetButton.onclick=resetAll;
+    el.memoryFileInput.onchange=loadMemoryFile; el.templateFileInput.onchange=loadTemplateFile; el.applyMemoryButton.onclick=applyMemoryDraft; el.saveMemoryButton.onclick=saveMemoryFile; el.exportButton.onclick=exportExcel;
+    el.pageSizeSelect.onchange=()=>{state.pageSize=Number(el.pageSizeSelect.value);state.page=1;renderEditorTable();}; el.prevPageButton.onclick=()=>movePage(-1); el.nextPageButton.onclick=()=>movePage(1); updatePaging();
+
+    function status(msg,t="ok"){el.globalStatus.textContent=msg;el.globalStatus.className="status mt-5 "+(t==="err"?"err":"ok")}
+    function validateMsg(msg,t="ok"){el.validationSummary.textContent=msg;el.validationSummary.className="status mt-5 "+(t==="err"?"err":"ok")}
+    function resetAll(){Object.assign(state,{raw:[],header:null,rows:[],memory:{},validation:{},pageSize:50,page:1,template:null,templateType:"xlsx"}); if(state.timer) clearTimeout(state.timer); el.pasteArea.value=""; el.fileInput.value=""; el.memoryFileInput.value=""; el.templateFileInput.value=""; el.setupStage.classList.remove("hide"); el.heroSection.classList.remove("hide"); el.inputStage.classList.remove("hide"); el.headerSection.classList.add("hide"); el.editorSection.classList.add("hide"); el.headerTable.innerHTML=""; el.editorTable.innerHTML=""; el.pageSizeSelect.value="50"; el.templateStatus.textContent="아직 양식 파일을 선택하지 않았습니다."; refreshCounts(); updatePaging(); validateMsg("검증 전입니다. 다운로드 시 자동으로 다시 확인합니다."); status("초기화되었습니다. 새 데이터를 붙여넣어 주세요.");}
+    function readPaste(){const text=el.pasteArea.value.trim(); if(!text) return status("붙여넣은 데이터가 없습니다.","err"); const rows=parsePaste(text).filter(r=>r.some(c=>norm(c)!=="")); if(!rows.length) return status("읽을 수 있는 데이터가 없습니다.","err"); loadRows(rows,"붙여넣은 데이터를 읽었습니다. 제목 행을 선택해 주세요.");}
+    function readFile(e){const file=e.target.files[0]; if(!file) return; const fr=new FileReader(); fr.onload=ev=>{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"}); const sh=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(sh,{header:1,defval:""}).filter(r=>Array.isArray(r)&&r.some(c=>norm(c)!=="")); loadRows(rows,"파일 데이터를 읽었습니다. 제목 행을 선택해 주세요.");}; fr.readAsArrayBuffer(file);}
+    function loadTemplateFile(e){const file=e.target.files[0]; if(!file) return; const ext=(file.name.split(".").pop()||"").toLowerCase(); if(ext==="xls"){state.template=null; el.templateFileInput.value=""; el.templateStatus.textContent="97-2003(.xls) 양식은 글꼴/스타일 보존이 불안정합니다. .xlsx 또는 .xlsm으로 저장한 양식을 사용해 주세요."; return status("97-2003(.xls) 양식은 지원하지 않습니다. 원본을 .xlsx 또는 .xlsm으로 다시 저장해 사용해 주세요.","err");} const fr=new FileReader(); fr.onload=ev=>{state.template=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellStyles:true,cellNF:true,bookVBA:true}); state.templateType=ext==="xlsm"?"xlsm":"xlsx"; el.templateStatus.textContent=`양식 선택됨: ${file.name}`; status("양식 엑셀 파일을 불러왔습니다.");}; fr.readAsArrayBuffer(file);}
+    function loadMemoryFile(e){const file=e.target.files[0]; if(!file) return; const fr=new FileReader(); fr.onload=ev=>{try{state.memory=parseMemoryText(String(ev.target.result||"")); fillMemos(); status("분류 JS 파일을 불러왔습니다.");}catch(err){status(err.message||"분류 파일을 읽지 못했습니다.","err");}}; fr.readAsText(file,"utf-8");}
+    function parseMemoryText(text){const t=text.trim(); if(!t) throw new Error("비어 있는 분류 파일입니다."); if(t.startsWith("{")) return JSON.parse(t); const m=t.match(/=\s*(\{[\s\S]*\})\s*;?\s*$/); if(!m) throw new Error("지원하지 않는 분류 파일 형식입니다."); return JSON.parse(m[1]);}
+    function loadRows(rows,msg){state.raw=rows.map(r=>Array.from(r)); state.header=null; state.rows=[]; el.setupStage.classList.remove("hide"); el.heroSection.classList.remove("hide"); el.inputStage.classList.remove("hide"); el.headerSection.classList.remove("hide"); el.editorSection.classList.add("hide"); el.confirmHeaderButton.disabled=true; renderHeaderTable(); status(msg);}
+    function renderHeaderTable(){const max=Math.max(...state.raw.map(r=>r.length),0); let html="<thead><tr><th style='width:84px'>선택</th><th style='width:70px'>행</th>"; for(let c=0;c<max;c++) html+=`<th>열 ${c+1}</th>`; html+="</tr></thead><tbody>"; state.raw.forEach((row,i)=>{html+=`<tr class="${state.header===i?"pick":""}"><td><button class="btn soft !py-2" onclick="pickHeader(${i})">${state.header===i?"선택됨":"선택"}</button></td><td>${i+1}</td>`; for(let c=0;c<max;c++) html+=`<td>${esc(row[c]??"")}</td>`; html+="</tr>";}); el.headerTable.innerHTML=html+"</tbody>";}
+    function pickHeader(i){state.header=i; el.confirmHeaderButton.disabled=false; renderHeaderTable(); const map=detectHeaders(state.raw[i]||[]); const found=Object.entries(map).map(([k,v])=>`${label(k)} ${v+1}열`).join(", "); status(found?`제목 행을 선택했습니다. 인식 결과: ${found}`:"제목 행을 선택했습니다.");}
+    function confirmHeader(){if(state.header===null) return status("먼저 제목 행을 선택해 주세요.","err"); const map=detectHeaders(state.raw[state.header]||[]); const miss=["code","name","balance","biz"].filter(k=>map[k]===undefined); if(miss.length) return status(`제목을 찾지 못했습니다: ${miss.map(label).join(", ")}`,"err"); state.rows=state.raw.slice(state.header+1).map((r,i)=>makeRow(r,map,i)).filter(r=>bizKey(r.biz)); state.page=1; fillMemos(); el.setupStage.classList.add("hide"); el.editorSection.classList.remove("hide"); renderEditorTable(); window.scrollTo({top:0,behavior:"smooth"}); status("제목 행이 확정되었습니다. 사업자번호가 없는 행은 제외하고 분류 편집 화면으로 전환했습니다.");}
+    function makeRow(r,map,i){const biz=formatBiz(r[map.biz]??""); const n=parseAmount(r[map.balance]); return {id:`r-${i}-${Date.now()}`,code:norm(r[map.code]??""),name:norm(r[map.name]??""),biz,balance:n===null?0:n*-1,category:"기장료",memo:"",detail:"기장료",splits:[],issue:n===null?"잔액을 숫자로 읽지 못해 0으로 처리했습니다.":""};}
+    function fillMemos(){state.rows.forEach(row=>{const entry=getMemoryEntry(row); const remembered=entry?.bookkeepingAmount; row.memo=Number.isFinite(remembered)?String(remembered):"";}); refreshCounts(); if(!el.editorSection.classList.contains("hide")) renderEditorTable();}
+    function refreshCounts(){el.rowCount.textContent=String(state.rows.length); el.mixedCount.textContent=String(state.rows.filter(r=>r.category==="혼합").length); el.memoryCount.textContent=String(Object.keys(state.memory).length);}
+    function visibleRows(){if(state.pageSize===0) return state.rows.map((row,index)=>({row,index})); const s=(state.page-1)*state.pageSize; return state.rows.slice(s,s+state.pageSize).map((row,o)=>({row,index:s+o}));}
+    function renderEditorTable(){refreshCounts(); state.validation={}; let html="<thead><tr><th style='width:88px'>삭제</th><th style='width:70px'>No.</th><th style='width:110px'>코드</th><th style='min-width:160px'>거래처명</th><th style='width:150px'>사업자번호</th><th style='width:120px'>잔액</th><th style='width:150px'>기억 기장료</th><th style='min-width:340px'>분류 / 내용</th><th style='min-width:360px'>혼합 상세</th></tr></thead><tbody>"; visibleRows().forEach(({row,index})=>html+=renderRow(row,index)); el.editorTable.innerHTML=html+"</tbody>"; updatePaging(); renderSummary();}
+    function renderRow(row,index){const v=storeValidation(row); return `<tr id="row-${row.id}"><td><button class="btn bad !py-2" onclick="deleteRow('${row.id}')">삭제</button></td><td>${index+1}</td><td>${esc(row.code)}</td><td><div class="font-bold">${esc(row.name)}</div>${row.issue?`<div class="mt-1 text-xs text-[#af2d22]">${esc(row.issue)}</div>`:""}</td><td>${esc(row.biz)}</td><td><span class="money" ondblclick="editBalance('${row.id}')">${fmt(row.balance)}</span></td><td><input value="${escA(row.memo)}" oninput="setMemo('${row.id}',this.value)" placeholder="기억 기장료">${renderMemoHint(row)}</td><td><div class="flex flex-wrap gap-2">${CATS.map(c=>`<button class="pill ${row.category===c?"on":""}" onclick="setCategory('${row.id}','${c}')"><span class="dot"></span><span>${c}</span></button>`).join("")}</div>${row.category==="기타"?`<div class="mt-3"><input value="${escA(row.detail||"기타")}" oninput="setDetail('${row.id}',this.value)" placeholder="기타 내용"></div>`:`<div class="mt-3 text-sm text-[var(--muted)]">출력 내용: ${esc(row.category)}</div>`}</td><td>${row.category==="혼합"?renderSplits(row):`<div class="text-sm text-[var(--muted)]">혼합 선택 시 세부 분류를 작성합니다.</div>`}<div id="valid-${row.id}" class="${v.message?`status ${v.valid?"ok":"err"} mt-2 text-xs`:""}">${v.message?esc(v.message):""}</div></td></tr>`;}
+    function renderSplits(row){return row.splits.map((s,i)=>`<div class="split mb-3"><div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]"><select onchange="setSplitType('${row.id}',${i},this.value)">${SPLITS.map(t=>`<option value="${t}" ${s.type===t?"selected":""}>${t}</option>`).join("")}</select><input value="${escA(s.amountText)}" oninput="setSplitAmount('${row.id}',${i},this.value,this)" placeholder="금액 입력"><button class="btn bad" onclick="removeSplit('${row.id}',${i})">삭제</button></div>${s.type==="기타"?`<div class="mt-3"><input value="${escA(s.detail||"기타")}" oninput="setSplitDetail('${row.id}',${i},this.value)" placeholder="기타 내용"></div>`:`<div class="mt-3 text-xs text-[var(--muted)]">출력 내용: ${esc(s.type)}</div>`}</div>`).join("")+`<button class="btn soft" onclick="addSplit('${row.id}')">세부 분류 추가</button>`;}
+    function setMemo(id,v){const row=findRow(id); if(!row) return; row.memo=trim(v);}
+    function setDetail(id,v){const row=findRow(id); if(!row) return; row.detail=trim(v)||"기타";}
+    function deleteRow(id){state.rows=state.rows.filter(r=>r.id!==id); delete state.validation[id]; clampPage(); renderEditorTable(); status("선택한 행을 삭제했습니다.");}
+    function setCategory(id,c){const row=findRow(id); if(!row) return; row.category=c; if(c==="기타"&&!row.detail) row.detail="기타"; if(c==="혼합"&&!row.splits.length){row.splits=createMixedSplits(row, getMemoryEntry(row));} rerenderRow(id);}
+    function addSplit(id){const row=findRow(id); if(!row) return; row.splits.push({type:"기타",amount:0,amountText:"",detail:"기타"}); rerenderRow(id);}
+    function removeSplit(id,i){const row=findRow(id); if(!row) return; row.splits.splice(i,1); if(!row.splits.length) row.splits=createMixedSplits(row, getMemoryEntry(row)); rerenderRow(id);}
+    function setSplitType(id,i,v){const row=findRow(id); if(!row||!row.splits[i]) return; row.splits[i].type=v; if(v==="기타"&&!row.splits[i].detail) row.splits[i].detail="기타"; rerenderRow(id);}
+    function setSplitDetail(id,i,v){const row=findRow(id); if(!row||!row.splits[i]) return; row.splits[i].detail=trim(v)||"기타";}
+    function setSplitAmount(id,i,v,input){const row=findRow(id); if(!row||!row.splits[i]) return; row.splits[i].amountText=trim(v); row.splits[i].amount=parseAmount(v)??0; if(input&&input.value!==v) input.value=v; updateValidation(id); scheduleSummary();}
+    function editBalance(id){const row=findRow(id); if(!row) return; const v=prompt("잔액을 수정하세요.",String(row.balance)); if(v===null) return; const n=parseAmount(v); if(n===null) return status("잔액은 숫자로 입력해 주세요.","err"); row.balance=n; row.issue=""; rerenderRow(id);}
+    function applyMemoryDraft(){let count=0; state.rows.forEach(row=>{const entry=getMemoryEntry(row); const rem=parseAmount(row.memo); if(!entry && rem===null) return; const preferred=entry?.preferredCategory || (entry?.splitBlueprint?.length ? "혼합" : "기장료"); if(preferred==="혼합"){row.category="혼합"; row.splits=createMixedSplits(row, entry); count++; return;} if(preferred==="기타"){row.category="기타"; row.detail=trim(entry?.preferredDetail)||"기타"; count++; return;} if(preferred==="조정료"){row.category="조정료"; count++; return;} if(rem!==null){row.category="기장료"; count++;}}); renderEditorTable(); status(count?`${count}개 행에 저장된 분류 기준을 반영했습니다.`:"적용할 분류 기준이 없습니다.",count?"ok":"err");}
+    function getMemoryEntry(row){return state.memory[bizKey(row.biz)]||null;}
+    function createMixedSplits(row,entry){const rem=parseAmount(row.memo); const remembered=Number.isFinite(entry?.bookkeepingAmount)?entry.bookkeepingAmount:rem; const blueprint=Array.isArray(entry?.splitBlueprint)&&entry.splitBlueprint.length?entry.splitBlueprint:[{type:"기장료",detail:"기장료"},{type:"조정료",detail:"조정료"}]; let usedBookkeeping=false; const splits=blueprint.map(item=>{const type=SPLITS.includes(item.type)?item.type:"조정료"; const detail=type==="기타"?(trim(item.detail)||"기타"):type; let amount=0, amountText=""; if(type==="기장료"&&!usedBookkeeping&&remembered!==null){amount=remembered; amountText=String(remembered); usedBookkeeping=true;} return {type,amount,amountText,detail};}); if(!splits.some(s=>s.type==="기장료")) splits.unshift({type:"기장료",amount:remembered??0,amountText:remembered===null?"":String(remembered),detail:"기장료"}); let adjustmentSplit=splits.find(s=>s.type==="조정료"); if(!adjustmentSplit){adjustmentSplit={type:"조정료",amount:0,amountText:"",detail:"조정료"}; splits.push(adjustmentSplit);} const filledTotal=splits.reduce((sum,s)=>sum+s.amount,0); const remain=row.balance-filledTotal; if(remain>=0){adjustmentSplit.amount=remain; adjustmentSplit.amountText=String(remain);} return splits;}
+    function validateRow(row){if(row.balance<0) return {valid:false,message:"잔액이 음수입니다."}; const memoValue=parseAmount(row.memo); if(row.category==="기장료"&&memoValue!==null&&memoValue!==row.balance) return {valid:false,message:`저장된 기장료 ${fmt(memoValue)} 와 현재 잔액 ${fmt(row.balance)} 이 다릅니다. 혼합 또는 기장료 금액을 확인해 주세요.`}; if(row.category==="기타"&&!trim(row.detail)) return {valid:false,message:"기타 내용이 필요합니다."}; if(row.category!=="혼합") return {valid:true,message:""}; let sum=0; if(!row.splits.length) return {valid:false,message:"혼합 분류 항목이 필요합니다."}; for(const s of row.splits){if(trim(s.amountText)==="") return {valid:false,message:"혼합 금액을 모두 입력해 주세요."}; if(s.amount<0) return {valid:false,message:"혼합 금액은 음수가 될 수 없습니다."}; if(s.type==="기타"&&!trim(s.detail)) return {valid:false,message:"혼합 기타 내용이 필요합니다."}; sum+=s.amount;} if(sum>row.balance) return {valid:false,message:`세부 금액 합계 ${fmt(sum)} 이 잔액 ${fmt(row.balance)} 을 초과했습니다.`}; if(sum!==row.balance) return {valid:false,message:`세부 금액 합계가 잔액과 같아야 합니다. 현재 차이 ${fmt(row.balance-sum)}`}; return {valid:true,message:`합계 일치 ${fmt(sum)}`};}
+    function renderMemoHint(row){const memoValue=parseAmount(row.memo); if(memoValue===null||memoValue===row.balance) return ""; return `<div class="mt-2 text-xs text-[#af2d22]">저장 기장료 ${fmt(memoValue)} / 현재 잔액 ${fmt(row.balance)}. 확인이 필요합니다.</div>`;}
+    function renderSummary(){const bad=state.rows.map((row,i)=>({i:i+1,v:state.validation[row.id]||storeValidation(row)})).filter(x=>!x.v.valid); if(!bad.length) return validateMsg("검증 통과. 현재 상태로 다운로드할 수 있습니다."); validateMsg(`검증 필요: ${bad.slice(0,4).map(x=>`${x.i}번 행`).join(", ")}${bad.length>4?" 외":""}`,"err");}
+    function storeValidation(row){const v=validateRow(row); state.validation[row.id]=v; return v;}
+    function updateValidation(id){const row=findRow(id), target=document.getElementById(`valid-${id}`); if(!row||!target) return; const v=storeValidation(row); target.className=v.message?`status ${v.valid?"ok":"err"} mt-2 text-xs`:""; target.textContent=v.message||"";}
+    function scheduleSummary(){if(state.timer) clearTimeout(state.timer); state.timer=setTimeout(()=>{state.timer=null; renderSummary();},120);}
+    function rerenderRow(id){const row=findRow(id), tr=document.getElementById(`row-${id}`); if(!row||!tr) return renderEditorTable(); tr.outerHTML=renderRow(row,state.rows.findIndex(r=>r.id===id)); refreshCounts(); scheduleSummary();}
+    function movePage(d){const t=totalPages(), n=Math.min(t,Math.max(1,state.page+d)); if(n===state.page) return; state.page=n; renderEditorTable();}
+    function totalPages(){return state.pageSize===0?1:Math.max(1,Math.ceil(state.rows.length/state.pageSize));}
+    function clampPage(){state.page=Math.min(Math.max(1,state.page),totalPages());}
+    function updatePaging(){clampPage(); const t=totalPages(); el.pageInfo.textContent=`${state.page} / ${t}`; el.prevPageButton.disabled=state.page<=1; el.nextPageButton.disabled=state.page>=t;}
+    function buildMemory(){const m={}; state.rows.forEach(row=>{const key=bizKey(row.biz); if(!key) return; const amount=getBookkeepingAmount(row); m[key]={businessNumber:formatBiz(key),bookkeepingAmount:amount,preferredCategory:row.category,preferredDetail:row.category==="기타"?(trim(row.detail)||"기타"):"",splitBlueprint:row.category==="혼합"?row.splits.map(s=>({type:s.type,detail:s.type==="기타"?(trim(s.detail)||"기타"):s.type})):[],updatedAt:new Date().toISOString()};}); return m;}
+    function getBookkeepingAmount(row){if(row.category==="혼합") return row.splits.filter(s=>s.type==="기장료").reduce((a,s)=>a+s.amount,0); if(row.category==="기장료") return parseAmount(row.memo)??row.balance; return parseAmount(row.memo)??0;}
+    function saveMemoryFile(){state.memory=buildMemory(); refreshCounts(); const txt=`window.TAXINVOICE_MEMORY = ${JSON.stringify(state.memory,null,2)};\n`; download(new Blob([txt],{type:"application/javascript;charset=utf-8"}),`taxinvoice-memory-${stamp()}.js`); fillMemos(); status("분류 기준을 JS 파일로 저장했습니다.");}
+    function buildExportRows(){const out=[]; for(const row of state.rows){const v=validateRow(row); if(!v.valid) throw new Error(`${row.name||row.code||"행"} 검증 실패: ${v.message}`); if(row.category==="혼합") row.splits.forEach(s=>out.push(makeExportItem(row.biz,s.amount,s.type==="기타"?trim(s.detail)||"기타":s.type))); else out.push(makeExportItem(row.biz,row.balance,row.category==="기타"?trim(row.detail)||"기타":row.category));} return out;}
+    function makeExportItem(biz,amount,desc){return {biz:bizKey(trim(biz)),amount:Number(amount||0),desc:trim(desc)}}
+    function exportExcel(){try{if(!state.template) throw new Error("먼저 양식 엑셀 파일을 불러와 주세요."); const year=Number(el.invoiceYearInput.value), month=Number(el.invoiceMonthInput.value); if(!Number.isInteger(year)||!Number.isInteger(month)||month<1||month>12) throw new Error("연도와 월을 정확히 입력해 주세요."); const wb=cloneWorkbook(state.template,state.templateType), name=wb.SheetNames[0], sh=wb.Sheets[name], rows=buildExportRows(), y=String(year).slice(-2), m=String(month).padStart(2,"0"), ymd=`${year}${m}25`, mmdd=`${m}25`; rows.forEach((row,i)=>writeRow(sh,i+2,ymd,mmdd,row)); const ext=state.templateType==="xlsm"?".xlsm":".xlsx"; XLSX.writeFile(wb,`${y}.${m}월 매출세금계산서(간편양식)${ext}`); state.memory=buildMemory(); refreshCounts(); status("양식 엑셀을 기반으로 파일을 만들었습니다.");}catch(err){status(err.message||"엑셀 다운로드 중 오류가 발생했습니다.","err");}}
+    function writeRow(sh,r,ymd,mmdd,row){const h=row.amount, e=Math.ceil(h/1.1), f=h-e; setCell(sh,`A${r}`,"01"); setCell(sh,`B${r}`,ymd); setCell(sh,`C${r}`,row.biz); setCell(sh,`E${r}`,e,"n"); setCell(sh,`F${r}`,f,"n"); setCell(sh,`H${r}`,h,"n"); setCell(sh,`M${r}`,"01"); setCell(sh,`N${r}`,mmdd); setCell(sh,`O${r}`,row.desc); setCell(sh,`S${r}`,e,"n"); setCell(sh,`T${r}`,f,"n");}
+    function setCell(sh,addr,val,t){sh[addr]={t:t||(typeof val==="number"?"n":"s"),v:val}; if(typeof val==="number") sh[addr].z="#,##0"; if(!sh["!ref"]) sh["!ref"]=`${addr}:${addr}`; else {const rg=XLSX.utils.decode_range(sh["!ref"]), c=XLSX.utils.decode_cell(addr); rg.s.r=Math.min(rg.s.r,c.r); rg.s.c=Math.min(rg.s.c,c.c); rg.e.r=Math.max(rg.e.r,c.r); rg.e.c=Math.max(rg.e.c,c.c); sh["!ref"]=XLSX.utils.encode_range(rg);}}
+    function cloneWorkbook(wb,bookType){return XLSX.read(XLSX.write(wb,{type:"array",bookType:bookType||"xlsx",bookVBA:bookType==="xlsm"}),{type:"array",cellStyles:true,cellNF:true,bookVBA:true});}
+    function detectHeaders(row){const map={}; row.forEach((v,i)=>{const t=norm(v).replace(/\s+/g,"").replace(/[()\-_/]/g,""); if(["코드","거래처코드"].includes(t)&&map.code===undefined) map.code=i; if(["거래처명","거래처","상호","업체명"].includes(t)&&map.name===undefined) map.name=i; if(["잔액","금액","미수금","합계잔액"].includes(t)&&map.balance===undefined) map.balance=i; if(["사업자번호","사업자등록번호"].includes(t)&&map.biz===undefined) map.biz=i;}); return map;}
+    function label(k){return ({code:"코드",name:"거래처명",balance:"잔액",biz:"사업자번호"})[k]||k}
+    function parsePaste(text){const rows=[]; let row=[],cell="",quote=false; for(let i=0;i<text.length;i++){const ch=text[i], next=text[i+1]; if(ch==='"'){if(quote&&next==='"'){cell+='"'; i++;} else quote=!quote;} else if(ch==="\t"&&!quote){row.push(cell); cell="";} else if((ch==="\n"||ch==="\r")&&!quote){if(ch==="\r"&&next==="\n") i++; row.push(cell); rows.push(row); row=[]; cell="";} else cell+=ch;} if(cell!==""||row.length){row.push(cell); rows.push(row);} return rows;}
+    function norm(v){return String(v??"").replace(/[\u00A0\u1680\u180E\u2000-\u200D\u202F\u205F\u3000\uFEFF]/g," ").replace(/\s+/g," ").trim();}
+    function trim(v){return norm(v);}
+    function parseAmount(v){const t=trim(v).replace(/,/g,"").replace(/원/g,"").replace(/\((.+)\)/,"-$1"); if(!t) return null; if(!/^-?\d+(?:\.\d+)?$/.test(t)) return null; return Number(t);}
+    function fmt(v){return Number(v||0).toLocaleString("ko-KR")}
+    function bizKey(v){return String(v||"").replace(/\D/g,"")}
+    function formatBiz(v){const d=bizKey(v); return d.length===10?`${d.slice(0,3)}-${d.slice(3,5)}-${d.slice(5)}`:trim(v)}
+    function findRow(id){return state.rows.find(r=>r.id===id)}
+    function download(blob,name){const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},0);}
+    function stamp(){const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`}
+    function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+    function escA(v){return esc(v).replace(/`/g,"&#96;")}
+    window.pickHeader=pickHeader; window.deleteRow=deleteRow; window.setCategory=setCategory; window.addSplit=addSplit; window.removeSplit=removeSplit; window.setSplitType=setSplitType; window.setSplitAmount=setSplitAmount; window.editBalance=editBalance; window.setMemo=setMemo; window.setDetail=setDetail; window.setSplitDetail=setSplitDetail;
+  </script>
+</body>
+</html>

@@ -1,0 +1,655 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 급여 대장 분류기</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <!-- Phosphor Icons for UI icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        .payroll-paste { overflow: auto; min-height: 180px; white-space: pre-wrap; }
+        .payroll-paste:empty::before { content: attr(data-placeholder); color: #64748b; }
+        .payroll-paste table { border-collapse: collapse; white-space: normal; margin-bottom: 12px; }
+        .payroll-paste td, .payroll-paste th { border: 1px solid #94a3b8; padding: 5px; min-width: 60px; }
+        #tableMapping select { border: 1px solid #94a3b8; margin: 4px; max-width: 170px; }
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .tab-btn.active {
+            border-bottom: 2px solid #2563eb; /* blue-600 */
+            color: #2563eb;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Header -->
+        <header class="mb-8 flex items-center gap-3">
+            <i class="ph ph-calculator text-4xl text-blue-600"></i>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">스마트 급여 대장 분류기</h1>
+                <p class="text-sm text-slate-500 mt-1">이름, 3.3%, 4대보험, 금액을 자동 인식하여 표로 정리해 줍니다.</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Panel: Input Area -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[700px]">
+                <label for="inputData" class="block text-sm font-semibold text-slate-700 mb-2">
+                    급여 데이터 붙여넣기
+                </label>
+                <div id="inputData" contenteditable="true" role="textbox" aria-multiline="true" aria-label="워드 표 붙여넣기" class="payroll-paste flex-1 w-full p-3 border border-slate-300 rounded-lg outline-none text-sm" data-placeholder="워드에서 표 전체를 복사해 여기에 붙여넣으세요."></div>
+                <p id="pasteStatus" class="text-xs mt-2 text-slate-600" role="status">표의 제목 행을 포함해 복사하세요. 붙여넣기는 현재 입력을 교체합니다.</p>
+                <div id="tableMapping" class="text-xs max-h-40 overflow-auto"></div>
+                <button type="button" onclick="clearPayrollInput()" class="text-sm mt-2 underline">입력 비우기</button>
+                
+                <button onclick="processText()" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2">
+                    <i class="ph ph-magic-wand text-lg"></i>
+                    자동 분류 실행
+                </button>
+                <button onclick="exportToExcel()" class="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2">
+                    <i class="ph ph-file-xls text-lg"></i>
+                    엑셀 내보내기
+                </button>
+            </div>
+
+            <!-- Right Panel: Result Area -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[700px] flex flex-col">
+                
+                <!-- Tabs -->
+                <div class="flex border-b border-slate-200 mb-4 overflow-x-auto shrink-0">
+                    <button onclick="switchTab('gross33')" id="tab-gross33" class="tab-btn active px-4 py-3 text-sm text-slate-600 whitespace-nowrap hover:bg-slate-50 transition">
+                        3.3% (세전) <span id="count-gross33" class="ml-1 bg-slate-100 text-slate-600 py-0.5 px-2 rounded-full text-xs">0</span>
+                    </button>
+                    <button onclick="switchTab('net33')" id="tab-net33" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap hover:bg-slate-50 transition">
+                        3.3% (세후) <span id="count-net33" class="ml-1 bg-slate-100 text-slate-600 py-0.5 px-2 rounded-full text-xs">0</span>
+                    </button>
+                    <button onclick="switchTab('ins4')" id="tab-ins4" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap hover:bg-slate-50 transition">
+                        4대보험 <span id="count-ins4" class="ml-1 bg-slate-100 text-slate-600 py-0.5 px-2 rounded-full text-xs">0</span>
+                    </button>
+                    <button onclick="switchTab('unclassified')" id="tab-unclassified" class="tab-btn px-4 py-3 text-sm text-slate-600 whitespace-nowrap hover:bg-slate-50 transition flex items-center gap-1">
+                        <i class="ph ph-warning-circle text-orange-500 hidden" id="warn-icon"></i> 미분류 
+                        <span id="count-unclassified" class="ml-1 bg-slate-100 text-slate-600 py-0.5 px-2 rounded-full text-xs">0</span>
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="flex-1 overflow-auto relative">
+                    <!-- 3.3% Gross -->
+                    <div id="content-gross33" class="block">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 sticky top-0 border-y border-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold w-1/4">이름</th>
+                                    <th class="px-4 py-3 font-semibold text-right w-1/3">급여액(원)</th>
+                                    <th class="px-4 py-3 font-semibold">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-gross33" class="divide-y divide-slate-100">
+                                <tr><td colspan="3" class="text-center py-8 text-slate-400">데이터가 없습니다.</td></tr>
+                            </tbody>
+                            <tfoot id="tfoot-gross33" class="bg-slate-50 border-y border-slate-200 font-bold sticky bottom-0 hidden">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- 3.3% Net -->
+                    <div id="content-net33" class="hidden">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 sticky top-0 border-y border-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold w-1/4">이름</th>
+                                    <th class="px-4 py-3 font-semibold text-right w-1/3">급여액(원)</th>
+                                    <th class="px-4 py-3 font-semibold">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-net33" class="divide-y divide-slate-100">
+                                <tr><td colspan="3" class="text-center py-8 text-slate-400">데이터가 없습니다.</td></tr>
+                            </tbody>
+                            <tfoot id="tfoot-net33" class="bg-slate-50 border-y border-slate-200 font-bold sticky bottom-0 hidden">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- 4대보험 -->
+                    <div id="content-ins4" class="hidden">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 sticky top-0 border-y border-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold w-1/4">이름</th>
+                                    <th class="px-4 py-3 font-semibold text-right w-1/3">급여액(원)</th>
+                                    <th class="px-4 py-3 font-semibold">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-ins4" class="divide-y divide-slate-100">
+                                <tr><td colspan="3" class="text-center py-8 text-slate-400">데이터가 없습니다.</td></tr>
+                            </tbody>
+                            <tfoot id="tfoot-ins4" class="bg-slate-50 border-y border-slate-200 font-bold sticky bottom-0 hidden">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- 미분류 (에러 핸들링) -->
+                    <div id="content-unclassified" class="hidden">
+                        <div class="bg-orange-50 text-orange-800 p-3 rounded mb-4 text-sm flex gap-2 items-start border border-orange-200">
+                            <i class="ph ph-info mt-0.5"></i>
+                            <p>형식에 맞지 않아 자동 분류되지 않은 항목들입니다. 알맞게 수정 후 <b>[확정]</b> 버튼을 누르면 정상 표로 이동됩니다.</p>
+                        </div>
+                        <div class="mb-4 flex justify-end">
+                            <button onclick="addUnclassifiedItem()" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded text-sm transition flex items-center gap-2">
+                                <i class="ph ph-plus-circle"></i>
+                                미분류 추가
+                            </button>
+                        </div>
+                        <div id="unclassified-list" class="space-y-4">
+                            <p class="text-center py-8 text-slate-400 text-sm">미분류 데이터가 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-5 py-3 rounded-lg shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2">
+        <i class="ph ph-check-circle text-green-400 text-lg"></i>
+        <span id="toast-msg">처리 완료</span>
+    </div>
+
+    <script>
+        // 전역 상태 데이터 보관소
+        let state = {
+            gross33: [],
+            net33: [],
+            ins4: [],
+            unclassified: []
+        };
+
+        // 토스트 알림 함수
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const msgObj = document.getElementById('toast-msg');
+            const icon = toast.querySelector('i');
+            
+            msgObj.innerText = message;
+            if(isError) {
+                icon.className = "ph ph-warning-circle text-red-400 text-lg";
+                toast.classList.replace('bg-slate-800', 'bg-red-900');
+            } else {
+                icon.className = "ph ph-check-circle text-green-400 text-lg";
+                toast.classList.replace('bg-red-900', 'bg-slate-800');
+            }
+
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        // 고유 ID 생성
+        function generateId() {
+            return Math.random().toString(36).substring(2, 9);
+        }
+
+
+        const payrollInput = document.getElementById('inputData');
+        let payrollMappings = [];
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function cellText(cell) {
+            const clone = cell.cloneNode(true);
+            clone.querySelectorAll('br').forEach(el => el.replaceWith('\n'));
+            clone.querySelectorAll('p,div').forEach(el => el.append('\n'));
+            return clone.textContent.replace(/\u00a0/g, ' ').trim();
+        }
+        // Import presentation only: no source scripts, links, events, images or arbitrary CSS.
+        function sanitizePayrollHtml(html) {
+            const source = new DOMParser().parseFromString(html, 'text/html');
+            const rules = [];
+            source.querySelectorAll('style').forEach(style => {
+                for (const match of style.textContent.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+                    const declaration = document.createElement('span').style;
+                    declaration.cssText = match[2];
+                    rules.push([match[1].trim(), declaration]);
+                }
+            });
+            const allowed = new Set(['TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','P','DIV','SPAN','BR','B','STRONG','I','EM','U','S','SUP','SUB','COLGROUP','COL']);
+            const blocked = new Set(['SCRIPT','STYLE','IFRAME','OBJECT','SVG','MATH','FORM','INPUT','BUTTON','LINK','META','IMG']);
+            const properties = ['color','background-color','font-family','font-size','font-weight','font-style','text-decoration','text-align','vertical-align','border','border-top','border-right','border-bottom','border-left','border-collapse','padding','padding-top','padding-right','padding-bottom','padding-left','width','height'];
+            function copy(node) {
+                if (node.nodeType === 3) return document.createTextNode(node.textContent);
+                if (node.nodeType !== 1 || blocked.has(node.tagName)) return document.createDocumentFragment();
+                const dest = allowed.has(node.tagName) ? document.createElement(node.tagName) : document.createDocumentFragment();
+                if (dest.nodeType === 1) {
+                    const apply = style => properties.forEach(prop => {
+                        const value = style.getPropertyValue(prop);
+                        if(value && !/url\s*\(|expression|var\s*\(/i.test(value)) dest.style.setProperty(prop,value);
+                    });
+                    rules.forEach(([selector,style]) => { try { if(node.matches(selector)) apply(style); } catch {} });
+                    apply(node.style);
+                    for(const attr of ['rowspan','colspan','span']) {
+                        if (/^\d{1,3}$/.test(node.getAttribute(attr) || '')) dest.setAttribute(attr,node.getAttribute(attr));
+                    }
+                    if(node.getAttribute('bgcolor') && /^#[0-9a-f]{3,8}$/i.test(node.getAttribute('bgcolor'))) dest.style.backgroundColor=node.getAttribute('bgcolor');
+                }
+                node.childNodes.forEach(child => dest.append(copy(child)));
+                return dest;
+            }
+            const fragment = document.createDocumentFragment();
+            source.body.childNodes.forEach(node => fragment.append(copy(node)));
+            return fragment;
+        }
+        payrollInput.addEventListener('paste', event => {
+            event.preventDefault();
+            const html = event.clipboardData?.getData('text/html') || '';
+            const text = event.clipboardData?.getData('text/plain') || '';
+            payrollInput.replaceChildren(html ? sanitizePayrollHtml(html) : document.createTextNode(text));
+            rebuildMappings();
+        });
+        payrollInput.addEventListener('drop', event => event.preventDefault());
+        payrollInput.addEventListener('input', rebuildMappings);
+        function clearPayrollInput() { payrollInput.replaceChildren(); rebuildMappings(); }
+        function topTables() { return [...payrollInput.querySelectorAll('table')].filter(t => !t.parentElement.closest('table')); }
+        function headerKey(value) { return value.replace(/[\s()·:]/g,''); }
+        function rebuildMappings() {
+            state = { gross33: [], net33: [], ins4: [], unclassified: [] };
+            renderAll();
+            const box = document.getElementById('tableMapping'); box.replaceChildren();
+            payrollMappings = topTables().map((table,index) => {
+                const rows = [...table.rows];
+                let header = -1, name = -1, amount = -1;
+                rows.some((row,r) => {
+                    const texts = [...row.cells].map(c => headerKey(cellText(c)));
+                    const n=texts.findIndex(t => /^(이름|성명|직원명|근로자명)$/.test(t));
+                    const m=texts.findIndex(t => /^(급여액수|급여액|급여|지급액|금액|급여액원|지급액원)$/.test(t));
+                    if(n>=0 && m>=0) { header=r; name=n; amount=m; return true; }
+                    return false;
+                });
+                const config={table,header,name,amount};
+                const panel=document.createElement('div'); panel.append(`표 ${index+1} `);
+                function select(label, values, current, key) {
+                    const wrap=document.createElement('label'); wrap.append(label);
+                    const el=document.createElement('select'); el.setAttribute('aria-label',`표 ${index+1} ${label}`);
+                    values.forEach(([value,text]) => el.add(new Option(text,value,false,value===current)));
+                    el.onchange=()=> {config[key]=Number(el.value); state={gross33:[],net33:[],ins4:[],unclassified:[]}; renderAll();};
+                    wrap.append(el); panel.append(wrap);
+                }
+                select('제목 행', [[-1,'없음'],...rows.map((_,i)=>[i,`${i+1}행`])],header,'header');
+                const cols=Math.max(0,...rows.map(r=>r.cells.length));
+                const options=[[-1,'선택 필요'],...Array.from({length:cols},(_,i)=>[i,`${i+1}열`])];
+                select('이름',options,name,'name'); select('금액',options,amount,'amount');
+                box.append(panel); return config;
+            });
+            document.getElementById('pasteStatus').textContent=payrollMappings.length
+                ? `표 ${payrollMappings.length}개를 인식했습니다. 제목 행과 열 선택을 확인하세요. 테두리·배경색·글자 서식을 보존합니다.`
+                : '표 구조가 없습니다. 텍스트의 각 줄을 확인 필요 항목으로 보존합니다. 표 전체를 다시 복사하면 행별 인식이 가능합니다.';
+        }
+        function parseKoreanMoney(str) {
+            const s=String(str).replace(/[원\s,]/g,'');
+            if(!/^[+-]?(?:\d+(?:\.\d+)?[만천백십]?)+$/.test(s)) return NaN;
+            const sign=s.startsWith('-')?-1:1;
+            let total=0;
+            for(const m of s.replace(/^[+-]/,'').matchAll(/(\d+(?:\.\d+)?)([만천백십]?)/g)) total+=Number(m[1])*({'만':10000,'천':1000,'백':100,'십':10,'':1}[m[2]]);
+            return Number.isSafeInteger(Math.round(total)) ? sign*Math.round(total) : NaN;
+        }
+        function analyzePayrollRow(nameCell, amountCell, original, location, forcedReason='') {
+            const all=(nameCell+' '+amountCell).normalize('NFKC');
+            const compact=all.replace(/\s/g,'');
+            const has33=/3\.3%/.test(compact), has4=/4대보험/.test(compact);
+            const net=/세후/.test(compact), gross=/세전/.test(compact);
+            const ambiguousTax=(net && gross)||/세후(?:가)?아[님닌]|세후.*(?:예정|변경)|세전.*(?:예정|변경)/.test(compact);
+            const type=has33===has4?'':has4?'ins4':net?'net33':'gross33';
+            const name=nameCell.replace(/^\s*\d+[.、)\s]*/,'').replace(/\([^)]*\)/g,'').replace(/3\s*\.\s*3\s*%|4\s*대\s*보험/g,'').trim();
+            const cleaned=amountCell.normalize('NFKC').replace(/\b\d{6}\s*[-–]\s*\d{7}\b/g,'').replace(/\d{4}[./-]\d{1,2}[./-]\d{1,2}/g,'');
+            const matches=[...cleaned.matchAll(/[+-]?\d[\d,]*(?:\.\d+)?(?:\s*[만천백십](?:\s*\d[\d,]*(?:\.\d+)?)?)*(?:\s*원)?/g)]
+                .filter(m=>/[만천백십원]/.test(m[0]));
+            const values=matches.map(m=>parseKoreanMoney(m[0]));
+            const reasons=[forcedReason];
+            if(!name) reasons.push('이름 확인 필요');
+            if(!type) reasons.push('소득구분 누락 또는 충돌');
+            if(ambiguousTax) reasons.push('세전·세후 표현 확인 필요');
+            if(matches.length!==1) reasons.push(matches.length?'금액이 여러 개입니다. 지급액을 확인하세요.':'금액 또는 단위를 확인하세요.');
+            if(values.some(v=>!Number.isFinite(v))) reasons.push('금액 변환 실패');
+            if(/차감|공제|합계|소계/.test(amountCell)) reasons.push('차감·합계 반영 여부 확인 필요');
+            const reason=reasons.filter(Boolean).join(' / ');
+            const note=`${location} / ${!has4&&!net&&!gross?'세전 기본값 / ':''}${amountCell}`;
+            if(reason) state.unclassified.push({id:generateId(),original,suggestedName:name,suggestedType:ambiguousTax?'':type,suggestedAmount:values.length===1&&Number.isFinite(values[0])?values[0]:'',reason,remark:note});
+            else state[type].push({id:generateId(),name,amount:values[0],amountText:matches[0][0],remark:note,original});
+        }
+        function processText() {
+            if(payrollMappings.some(m=>m.name<0||m.amount<0||m.name===m.amount)) {
+                showToast('각 표의 이름 열과 금액 열을 서로 다르게 선택하세요.',true); return;
+            }
+            state={gross33:[],net33:[],ins4:[],unclassified:[]};
+            let candidates=0, headers=0, excluded=0;
+            if(payrollMappings.length) {
+                const outside=payrollInput.cloneNode(true);
+                outside.querySelectorAll('table').forEach(t=>t.remove());
+                const leftover=cellText(outside);
+                if(leftover) { state.unclassified.push({id:generateId(),original:leftover,suggestedName:'',suggestedType:'',reason:'표 바깥의 텍스트입니다. 급여 정보인지 확인하고 불필요하면 제외하세요.'}); candidates++; }
+                payrollMappings.forEach((config,t)=> {
+                    [...config.table.rows].forEach((row,r)=> {
+                        if(row.closest('table')!==config.table) return;
+                        const cells=[...row.cells], texts=cells.map(cellText);
+                        if(!texts.some(Boolean)) {excluded++;return;}
+                        if(r<=config.header || (texts.some(x=>/^(이름|성명|직원명)$/.test(headerKey(x))) && texts.some(x=>/^(급여액수|급여액|급여|지급액|금액)$/.test(headerKey(x))))) {headers++;return;}
+                        const name=texts[config.name]||'', money=texts[config.amount]||'';
+                        if(/^(합계|소계|총계)$/.test(headerKey(name))) {excluded++;return;}
+                        const merged=cells.some(c=>c.rowSpan>1||c.colSpan>1)||config.table.querySelector('[rowspan]:not([rowspan="1"])');
+                        analyzePayrollRow(name,money,texts.join(' | '),`표 ${t+1} · ${r+1}행`,merged?'병합 셀의 직원 경계 확인 필요':'');
+                        candidates++;
+                    });
+                });
+            } else {
+                cellText(payrollInput).split(/\n/).map(x=>x.trim()).filter(Boolean).forEach((line,i)=> {
+                    state.unclassified.push({id:generateId(),original:line,suggestedName:'',suggestedType:'',reason:`텍스트 ${i+1}행: 표 구조가 없어 직원 경계를 확인해야 합니다.`}); candidates++;
+                });
+            }
+            renderAll();
+            document.getElementById('pasteStatus').textContent=`원본 후보 ${candidates}행 · 분류 ${state.gross33.length+state.net33.length+state.ins4.length}행 · 확인 필요 ${state.unclassified.length}행 · 제목/앞부분 ${headers}행 · 빈 행/합계 ${excluded}행 제외`;
+            if(state.unclassified.length) switchTab('unclassified');
+            showToast('분류 완료. 원본과 확인 필요 항목을 검토하세요.');
+        }
+
+        function resolveUnclassified(id) {
+            const itemIndex = state.unclassified.findIndex(x => x.id === id);
+            if(itemIndex === -1) return;
+
+            const nameInput = document.getElementById(`un_name_${id}`).value.trim();
+            const typeInput = document.getElementById(`un_type_${id}`).value;
+            let amountRaw = document.getElementById(`un_amount_${id}`).value.trim();
+            const remarkInput = document.getElementById(`un_remark_${id}`).value.trim();
+
+            // 숫자로 입력했는지, 한글로 입력했는지 파악 후 변환
+            const amountInput = parseKoreanMoney(amountRaw + (amountRaw.includes('만') || amountRaw.includes('원') ? '' : '원'));
+
+            if(!nameInput || !['gross33','net33','ins4'].includes(typeInput) || !Number.isFinite(amountInput)) {
+                showToast("이름과 정확한 급여액을 입력해주세요.", true);
+                return;
+            }
+
+            const newItem = {
+                id: generateId(),
+                name: nameInput,
+                amountText: amountInput.toLocaleString() + '원',
+                amount: amountInput,
+                remark: remarkInput,
+                original: state.unclassified[itemIndex].original
+            };
+
+            state[typeInput].push(newItem);
+            state.unclassified.splice(itemIndex, 1);
+
+            renderAll();
+            showToast("정상 분류되었습니다.");
+        }
+
+        function addUnclassifiedItem() {
+            state.unclassified.unshift({
+                id: generateId(),
+                original: '',
+                suggestedName: '',
+                suggestedType: 'gross33'
+            });
+            renderAll();
+            showToast("미분류 항목이 추가되었습니다.");
+        }
+
+        function deleteUnclassified(id) {
+            const itemIndex = state.unclassified.findIndex(x => x.id === id);
+            if(itemIndex === -1) return;
+
+            if(!confirm('이 항목을 급여 대상에서 제외할까요? 원본은 입력 표에 남습니다.')) return;
+            state.unclassified.splice(itemIndex, 1);
+            renderAll();
+            showToast("미분류 항목이 삭제되었습니다.");
+        }
+
+        async function exportToExcel() {
+            if(state.unclassified.length) { showToast('확인 필요 항목을 확정하거나 제외한 뒤 내보내세요.', true); return; }
+            if(typeof ExcelJS === 'undefined') {
+                showToast("엑셀 내보내기 라이브러리를 불러오지 못했습니다.", true);
+                return;
+            }
+
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Codex';
+            workbook.created = new Date();
+
+            const sheets = [
+                { key: 'gross33', name: '3.3%(세전)', amountHeader: '금액(세전)', color: 'DDEAFE' },
+                { key: 'net33', name: '3.3%(세후)', amountHeader: '금액(세후)', color: 'DCFCE7' },
+                { key: 'ins4', name: '4대보험', amountHeader: '금액(4대보험)', color: 'FEF3C7' }
+            ];
+
+            sheets.forEach(sheetInfo => {
+                const worksheet = workbook.addWorksheet(sheetInfo.name, {
+                    views: [{ state: 'frozen', ySplit: 1 }]
+                });
+
+                worksheet.columns = [
+                    { header: '이름', key: 'name', width: 16 },
+                    { header: sheetInfo.amountHeader, key: 'amount', width: 16 },
+                    { header: '비고', key: 'remark', width: 42 }
+                ];
+
+                const headerRow = worksheet.getRow(1);
+                headerRow.height = 24;
+                headerRow.eachCell(cell => {
+                    cell.font = { bold: true, color: { argb: '1F2937' } };
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: sheetInfo.color }
+                    };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'CBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'CBD5E1' } },
+                        bottom: { style: 'thin', color: { argb: 'CBD5E1' } },
+                        right: { style: 'thin', color: { argb: 'CBD5E1' } }
+                    };
+                });
+
+                const rows = state[sheetInfo.key];
+                rows.forEach(item => {
+                    const row = worksheet.addRow({
+                        name: item.name || '',
+                        amount: item.amount || 0,
+                        remark: item.remark || ''
+                    });
+                    row.getCell('amount').numFmt = '#,##0';
+                });
+
+                const totalAmount = rows.reduce((sum, item) => sum + (item.amount || 0), 0);
+                const totalRow = worksheet.addRow({
+                    name: `합계 (${rows.length}건)`,
+                    amount: totalAmount,
+                    remark: ''
+                });
+                totalRow.font = { bold: true, color: { argb: '111827' } };
+                totalRow.getCell('amount').numFmt = '#,##0';
+                totalRow.eachCell(cell => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'F8FAFC' }
+                    };
+                    cell.border = {
+                        top: { style: 'medium', color: { argb: '94A3B8' } },
+                        bottom: { style: 'thin', color: { argb: 'CBD5E1' } }
+                    };
+                });
+
+                worksheet.eachRow((row, rowNumber) => {
+                    if(rowNumber === 1) return;
+                    row.height = 22;
+                    row.eachCell(cell => {
+                        cell.alignment = {
+                            vertical: 'middle',
+                            horizontal: cell.col === 2 ? 'right' : 'left',
+                            wrapText: true
+                        };
+                        cell.border = {
+                            bottom: { style: 'thin', color: { argb: 'E2E8F0' } }
+                        };
+                    });
+                });
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '급여분류_완성본.xlsx';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+
+            showToast("엑셀 파일을 다운로드했습니다.");
+        }
+
+        // UI 렌더링 함수 종합
+        function renderAll() {
+            const status = document.getElementById('pasteStatus');
+            if(status && status.textContent.startsWith('원본 후보')) status.textContent=status.textContent.replace(/분류 \d+행 · 확인 필요 \d+행/, `분류 ${state.gross33.length+state.net33.length+state.ins4.length}행 · 확인 필요 ${state.unclassified.length}행`);
+            renderTable('gross33', state.gross33);
+            renderTable('net33', state.net33);
+            renderTable('ins4', state.ins4);
+            renderUnclassified();
+            updateCounts();
+        }
+
+        // 테이블 렌더링
+        function renderTable(tabId, dataArray) {
+            const tbody = document.getElementById(`tbody-${tabId}`);
+            const tfoot = document.getElementById(`tfoot-${tabId}`);
+            
+            tbody.innerHTML = '';
+            
+            if(dataArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-slate-400">데이터가 없습니다.</td></tr>`;
+                tfoot.classList.add('hidden');
+                return;
+            }
+
+            let totalAmount = 0;
+
+            dataArray.forEach(item => {
+                totalAmount += item.amount;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-medium text-slate-800">${escapeHtml(item.name)}</td>
+                    <td class="px-4 py-3 text-right text-blue-600 font-medium">${item.amount.toLocaleString()}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(item.remark)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // 합계 렌더링
+            tfoot.innerHTML = `
+                <tr>
+                    <td class="px-4 py-3 text-center">합계 (${dataArray.length}건)</td>
+                    <td class="px-4 py-3 text-right text-blue-700 font-bold">${totalAmount.toLocaleString()}원</td>
+                    <td></td>
+                </tr>
+            `;
+            tfoot.classList.remove('hidden');
+        }
+
+        // 미분류 리스트 렌더링
+        function renderUnclassified() {
+            const container = document.getElementById('unclassified-list');
+            container.innerHTML = '';
+
+            if(state.unclassified.length === 0) {
+                container.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">미분류 데이터가 없습니다.</p>`;
+                return;
+            }
+
+            state.unclassified.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white border border-slate-200 p-4 rounded-lg shadow-sm";
+                div.innerHTML = `
+                    <div class="mb-3">
+                        <span class="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded">인식 실패 원본</span>
+                        <p class="text-sm mt-1 text-slate-700 font-mono bg-slate-50 p-2 rounded break-all">${escapeHtml(item.original)}</p>
+                    </div>
+                    <p class="text-sm text-orange-700 mb-2">${escapeHtml(item.reason || "수동 확인")}</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
+                        <input type="text" id="un_name_${item.id}" placeholder="이름" value="${escapeHtml(item.suggestedName || '')}" class="col-span-1 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                        <select id="un_type_${item.id}" class="col-span-1 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                            <option value="" ${!item.suggestedType ? 'selected' : ''}>소득구분 선택</option>
+                            <option value="gross33" ${item.suggestedType === 'gross33' ? 'selected' : ''}>3.3% (세전)</option>
+                            <option value="net33" ${item.suggestedType === 'net33' ? 'selected' : ''}>3.3% (세후)</option>
+                            <option value="ins4" ${item.suggestedType === 'ins4' ? 'selected' : ''}>4대보험</option>
+                        </select>
+                        <input type="text" id="un_amount_${item.id}" value="${escapeHtml(item.suggestedAmount ?? '')}" placeholder="확정 금액 (원)" class="col-span-1 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                        <input type="text" id="un_remark_${item.id}" value="${escapeHtml(item.remark || '')}" placeholder="비고 입력 (선택)" class="col-span-1 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                        <div class="col-span-1 flex gap-2">
+                            <button onclick="deleteUnclassified('${item.id}')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-3 rounded text-sm transition">삭제</button>
+                            <button onclick="resolveUnclassified('${item.id}')" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 px-3 rounded text-sm transition">확정</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // 카운트 배지 및 아이콘 업데이트
+        function updateCounts() {
+            document.getElementById('count-gross33').innerText = state.gross33.length;
+            document.getElementById('count-net33').innerText = state.net33.length;
+            document.getElementById('count-ins4').innerText = state.ins4.length;
+            document.getElementById('count-unclassified').innerText = state.unclassified.length;
+
+            const warnIcon = document.getElementById('warn-icon');
+            const unclassBtn = document.getElementById('tab-unclassified');
+            const unclassBadge = document.getElementById('count-unclassified');
+
+            if(state.unclassified.length > 0) {
+                warnIcon.classList.remove('hidden');
+                unclassBadge.classList.replace('bg-slate-100', 'bg-orange-500');
+                unclassBadge.classList.replace('text-slate-600', 'text-white');
+            } else {
+                warnIcon.classList.add('hidden');
+                unclassBadge.classList.replace('bg-orange-500', 'bg-slate-100');
+                unclassBadge.classList.replace('text-white', 'text-slate-600');
+            }
+        }
+
+        // 탭 전환 기능
+        function switchTab(tabId) {
+            // 버튼 스타일 초기화
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            // 콘텐츠 숨기기
+            ['gross33', 'net33', 'ins4', 'unclassified'].forEach(id => {
+                document.getElementById(`content-${id}`).classList.add('hidden');
+                document.getElementById(`content-${id}`).classList.remove('block');
+            });
+
+            // 선택된 탭 활성화
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            document.getElementById(`content-${tabId}`).classList.remove('hidden');
+            document.getElementById(`content-${tabId}`).classList.add('block');
+        }
+
+    </script>
+</body>
+</html>
